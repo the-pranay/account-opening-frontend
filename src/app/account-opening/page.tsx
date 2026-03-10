@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
@@ -24,7 +24,7 @@ import DocumentsStep from '@/features/accountOpening/Documents';
 import BasicDetailsStep from '@/features/accountOpening/BasicDetails';
 import TransactionLimitsStep from '@/features/accountOpening/TransactionLimits';
 import NomineeStep from '@/features/accountOpening/Nominee';
-import { Building2, Bell, ArrowLeft } from 'lucide-react';
+import { Bell, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const ACCOUNT_TYPE_LABELS: Record<string, string> = {
@@ -35,7 +35,7 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   salary: 'Salary Account',
 };
 
-export default function AccountOpeningPage() {
+function AccountOpeningContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const accountType = searchParams.get('type') || 'savings';
@@ -113,13 +113,16 @@ export default function AccountOpeningPage() {
         }}
       >
         <Toolbar sx={{ justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Building2 size={28} color="#00bfa5" />
-            <Typography variant="h6" sx={{ fontWeight: 800, color: '#fff' }}>
-              CoreBank
-              <Typography component="span" sx={{ fontSize: '0.75rem', ml: 1, opacity: 0.6, fontWeight: 400 }}>
-                Account Opening System
-              </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{ height: 38, overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
+              <img
+                src="/idigibank-logo.png"
+                alt="idigiBank"
+                style={{ height: 80, marginTop: -21, marginBottom: -21, objectFit: 'contain' }}
+              />
+            </Box>
+            <Typography component="span" sx={{ fontSize: '0.75rem', opacity: 0.6, fontWeight: 400, color: '#fff' }}>
+              Account Opening System
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -211,5 +214,13 @@ export default function AccountOpeningPage() {
         </Box>
       )}
     </Box>
+  );
+}
+
+export default function AccountOpeningPage() {
+  return (
+    <Suspense fallback={<Box sx={{ minHeight: '100vh' }} />}>
+      <AccountOpeningContent />
+    </Suspense>
   );
 }

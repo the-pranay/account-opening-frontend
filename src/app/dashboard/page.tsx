@@ -102,13 +102,16 @@ export default function DashboardPage() {
         }}
       >
         <Toolbar sx={{ justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Building2 size={28} color="#00bfa5" />
-            <Typography variant="h6" sx={{ fontWeight: 800, color: '#fff', letterSpacing: '-0.02em' }}>
-              CoreBank
-              <Typography component="span" sx={{ fontSize: '0.75rem', ml: 1, opacity: 0.6, fontWeight: 400 }}>
-                Account Opening System
-              </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{ height: 38, overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
+              <img
+                src="/idigibank-logo.png"
+                alt="idigiBank"
+                style={{ height: 80, marginTop: -21, marginBottom: -21, objectFit: 'contain' }}
+              />
+            </Box>
+            <Typography component="span" sx={{ fontSize: '0.75rem', opacity: 0.6, fontWeight: 400, color: '#fff' }}>
+              Account Opening System
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>

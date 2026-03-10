@@ -6,9 +6,9 @@ import Providers from './providers';
 const inter = Inter({ subsets: ['latin'], display: 'swap' });
 
 export const metadata: Metadata = {
-  title: 'Bank Account Opening System | Enterprise Banking',
-  description: 'Enterprise-grade Bank Account Opening System for bank executives to open and manage customer accounts.',
-  keywords: ['banking', 'account opening', 'savings', 'current', 'enterprise', 'core banking'],
+  title: 'idigiBank | Account Opening System',
+  description: 'idigiBank Enterprise Account Opening System for bank executives to open and manage customer accounts.',
+  keywords: ['idigiBank', 'banking', 'account opening', 'savings', 'current', 'enterprise', 'digital banking'],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
