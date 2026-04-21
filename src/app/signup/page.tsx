@@ -62,6 +62,7 @@ export default function SignupPage() {
 
   const onSubmit = async (data: SignupForm) => {
     setError('');
+    console.log('Signup attempt with:', data);
     setLoading(true);
     await new Promise((r) => setTimeout(r, 1500));
     setLoading(false);
