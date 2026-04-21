@@ -90,7 +90,7 @@ export default function AddApplicantModal({ open, onClose, onSave }: AddApplican
             <FormInput name="customerId" control={control} label="Customer ID" required />
           </Grid>
           <Grid size={12}>
-            <FormInput name="customerName" control={control} label="Customer Name" required disabled={isExisting} />
+            <FormInput name="customerName" control={control} label="Customer Name" required />
           </Grid>
           <Grid size={12}>
             <SelectInput name="customerRole" control={control} label="Customer Role" options={CUSTOMER_ROLES} required />

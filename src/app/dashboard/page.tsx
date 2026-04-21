@@ -176,6 +176,7 @@ export default function DashboardPage() {
                 onChange={(e) => setCustomerType(e.target.value)}
                 fullWidth
                 size="small"
+                SelectProps={{ MenuProps: { disablePortal: false, sx: { zIndex: 9999 } } }}
               >
                 <MenuItem value=""><em>All Types</em></MenuItem>
                 {CUSTOMER_TYPES.map((t) => (
@@ -191,6 +192,7 @@ export default function DashboardPage() {
                 onChange={(e) => setSearchBy(e.target.value)}
                 fullWidth
                 size="small"
+                SelectProps={{ MenuProps: { disablePortal: false, sx: { zIndex: 9999 } } }}
               >
                 <MenuItem value=""><em>Select</em></MenuItem>
                 {SEARCH_BY_OPTIONS.map((s) => (
