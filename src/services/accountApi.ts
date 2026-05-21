@@ -22,7 +22,7 @@ import type {
 
 // ─── Axios Instance ──────────────────────────────────────────
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  baseURL: 'https://idigicloudbank-acount-opening-service-1.onrender.com/api',
   timeout: 180000, // 180s — Render free tier needs time for cold start
   headers: {
     'Content-Type': 'application/json',
