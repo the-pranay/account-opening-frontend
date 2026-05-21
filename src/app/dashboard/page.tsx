@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
@@ -21,12 +21,14 @@ import Chip from '@mui/material/Chip';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import Avatar from '@mui/material/Avatar';
+import CircularProgress from '@mui/material/CircularProgress';
 import { useRouter } from 'next/navigation';
 import DataTable from '@/components/tables/DataTable';
 import { createColumnHelper } from '@tanstack/react-table';
 import { CUSTOMER_TYPES, SEARCH_BY_OPTIONS } from '@/constants/formFields';
-import { MOCK_CUSTOMERS } from '@/services/accountApi';
-import type { CustomerSearchResult } from '@/types/accountTypes';
+import { searchCustomer, getMyApplications, getErrorMessage } from '@/services/accountApi';
+import { useAuth, ProtectedRoute } from '@/services/authContext';
+import type { CustomerSearchResult, AccountOpeningResponse } from '@/types/accountTypes';
 import {
   Search,
   PlusCircle,
@@ -37,6 +39,7 @@ import {
   Building2,
   Bell,
   LayoutDashboard,
+  LogOut,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -60,34 +63,94 @@ const customerColumns = [
   }),
 ];
 
-export default function DashboardPage() {
+const appColumnHelper = createColumnHelper<AccountOpeningResponse>();
+
+const applicationColumns = [
+  appColumnHelper.accessor('id', { header: 'ID' }),
+  appColumnHelper.accessor('productClass', { header: 'Product' }),
+  appColumnHelper.accessor('branchCode', { header: 'Branch' }),
+  appColumnHelper.accessor('cbsAccountNumber', {
+    header: 'CBS Account',
+    cell: (info) => info.getValue() || '—',
+  }),
+  appColumnHelper.accessor('status', {
+    header: 'Status',
+    cell: (info) => {
+      const status = info.getValue();
+      const color = status === 'ACTIVE' ? 'success' : status === 'REJECTED' ? 'error' : status === 'SUBMITTED' ? 'info' : 'warning';
+      return <Chip label={status} size="small" color={color} sx={{ fontWeight: 600 }} />;
+    },
+  }),
+  appColumnHelper.accessor('createdAt', {
+    header: 'Created',
+    cell: (info) => info.getValue() ? new Date(info.getValue()).toLocaleDateString() : '—',
+  }),
+];
+
+function DashboardContent() {
   const router = useRouter();
+  const { user, logout } = useAuth();
   const [customerType, setCustomerType] = useState('');
   const [searchBy, setSearchBy] = useState('');
   const [searchValue, setSearchValue] = useState('');
   const [searchResults, setSearchResults] = useState<CustomerSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const [applications, setApplications] = useState<AccountOpeningResponse[]>([]);
+  const [loadingApps, setLoadingApps] = useState(true);
 
-  const handleSearch = () => {
+  // Fetch user's applications on mount
+  useEffect(() => {
+    const fetchApplications = async () => {
+      try {
+        const response = await getMyApplications();
+        if (response.success && response.data) {
+          setApplications(response.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch applications:', err);
+      } finally {
+        setLoadingApps(false);
+      }
+    };
+    fetchApplications();
+  }, []);
+
+  const handleSearch = async () => {
     if (!searchValue) {
       toast.error('Please enter a search value');
       return;
     }
-    // Mock search
-    const results = MOCK_CUSTOMERS.filter((c) =>
-      c.customerName.toLowerCase().includes(searchValue.toLowerCase()) ||
-      c.customerId.toLowerCase().includes(searchValue.toLowerCase())
-    );
-    setSearchResults(results);
-    toast.success(`Found ${results.length} customer(s)`);
+    setSearching(true);
+    try {
+      const response = await searchCustomer({ customerType, searchBy, searchValue });
+      // API returns ApiResponse format — data can be array or object
+      const results = response.success && response.data
+        ? (Array.isArray(response.data) ? response.data : [response.data])
+        : [];
+      setSearchResults(results);
+      toast.success(`Found ${results.length} customer(s)`);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
   };
+
+  const userInitials = user
+    ? `${(user.firstName || '')[0] || ''}${(user.lastName || '')[0] || ''}`.toUpperCase() || 'U'
+    : 'U';
+  const userName = user
+    ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User'
+    : 'User';
 
   const accountTypes = [
     { type: 'Savings Account', icon: <PiggyBank size={24} />, color: '#00695c', path: '/account-opening?type=savings' },
     { type: 'Current Account', icon: <Landmark size={24} />, color: '#1a237e', path: '/account-opening?type=current' },
-    { type: 'Fixed Deposit (FD) Account', icon: <CreditCard size={24} />, color: '#e65100', path: '#' },
-    { type: 'Recurring Deposit (RD) Account', icon: <Wallet size={24} />, color: '#6a1b9a', path: '#' },
-    { type: 'Salary Account', icon: <Building2 size={24} />, color: '#0d47a1', path: '#' },
+    { type: 'Fixed Deposit (FD) Account', icon: <CreditCard size={24} />, color: '#e65100', path: '/account-opening?type=fd' },
+    { type: 'Recurring Deposit (RD) Account', icon: <Wallet size={24} />, color: '#6a1b9a', path: '/account-opening?type=rd' },
+    { type: 'Salary Account', icon: <Building2 size={24} />, color: '#0d47a1', path: '/account-opening?type=salary' },
   ];
 
   return (
@@ -118,11 +181,19 @@ export default function DashboardPage() {
             <Bell size={20} color="rgba(255,255,255,0.6)" style={{ cursor: 'pointer' }} />
             <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Avatar sx={{ width: 32, height: 32, bgcolor: '#00695c', fontSize: '0.85rem' }}>BK</Avatar>
+              <Avatar sx={{ width: 32, height: 32, bgcolor: '#00695c', fontSize: '0.85rem' }}>{userInitials}</Avatar>
               <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', fontWeight: 500 }}>
-                Bank Executive
+                {userName}
               </Typography>
             </Box>
+            <Button
+              size="small"
+              onClick={logout}
+              startIcon={<LogOut size={16} />}
+              sx={{ color: 'rgba(255,255,255,0.6)', textTransform: 'none', '&:hover': { color: '#fff' } }}
+            >
+              Logout
+            </Button>
           </Box>
         </Toolbar>
       </AppBar>
@@ -214,17 +285,18 @@ export default function DashboardPage() {
               <Button
                 variant="contained"
                 fullWidth
-                startIcon={<Search size={18} />}
+                startIcon={searching ? <CircularProgress size={18} color="inherit" /> : <Search size={18} />}
                 onClick={handleSearch}
+                disabled={searching}
                 sx={{ py: '8.5px' }}
               >
-                Check
+                {searching ? 'Searching…' : 'Check'}
               </Button>
             </Grid>
           </Grid>
         </Paper>
 
-        {/* Results / Account Sections */}
+        {/* Results */}
         <Grid container spacing={3}>
           <Grid size={12}>
             <DataTable
@@ -234,7 +306,8 @@ export default function DashboardPage() {
             />
           </Grid>
 
-          <Grid size={{ xs: 12, md: 6 }}>
+          {/* My Applications */}
+          <Grid size={12}>
             <Paper
               elevation={0}
               sx={{
@@ -242,41 +315,18 @@ export default function DashboardPage() {
                 borderRadius: '16px',
                 border: '1px solid',
                 borderColor: 'divider',
-                minHeight: 200,
               }}
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <Landmark size={20} color="#00695c" />
-                <Typography variant="subtitle1" fontWeight={700}>
-                  Savings Accounts
-                </Typography>
-              </Box>
-              <Typography variant="body2" color="text.secondary">
-                No savings accounts to display. Use &quot;Add New Account&quot; to create one.
+              <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
+                My Applications
               </Typography>
-            </Paper>
-          </Grid>
-
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: 3,
-                borderRadius: '16px',
-                border: '1px solid',
-                borderColor: 'divider',
-                minHeight: 200,
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <PiggyBank size={20} color="#e65100" />
-                <Typography variant="subtitle1" fontWeight={700}>
-                  Term Deposits
-                </Typography>
-              </Box>
-              <Typography variant="body2" color="text.secondary">
-                No term deposits to display.
-              </Typography>
+              {loadingApps ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                  <CircularProgress size={32} />
+                </Box>
+              ) : (
+                <DataTable data={applications} columns={applicationColumns} />
+              )}
             </Paper>
           </Grid>
         </Grid>
@@ -307,11 +357,7 @@ export default function DashboardPage() {
                 key={acc.type}
                 onClick={() => {
                   setAccountModalOpen(false);
-                  if (acc.path !== '#') {
-                    router.push(acc.path);
-                  } else {
-                    toast('Coming soon!', { icon: '🚧' });
-                  }
+                  router.push(acc.path);
                 }}
                 sx={{
                   py: 2,
@@ -336,5 +382,13 @@ export default function DashboardPage() {
         </DialogContent>
       </Dialog>
     </Box>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <ProtectedRoute>
+      <DashboardContent />
+    </ProtectedRoute>
   );
 }

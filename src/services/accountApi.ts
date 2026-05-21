@@ -1,20 +1,37 @@
 import axios from 'axios';
-import type { CustomerSearchParams, OfflineFormData } from '@/types/accountTypes';
-import type { AccountOpeningState } from '@/types/accountTypes';
+import type {
+  CustomerSearchParams,
+  LoginRequest,
+  RegisterRequest,
+  ApiResponse,
+  AuthResponse,
+  AccountOpeningResponse,
+  NewAccountRequest,
+  ProductSelectionRequest,
+  RelationshipRequest,
+  DocumentUploadRequest,
+  BasicDetailsRequest,
+  NomineeRequest,
+  InitialFundingRequest,
+  KycVerifyRequest,
+  OcrRequestBody,
+  KycResultResponse,
+  KycVerifyResponse,
+  KycStatusResponse,
+} from '@/types/accountTypes';
 
-// Axios instance with interceptors
+// ─── Axios Instance ──────────────────────────────────────────
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api',
-  timeout: 30000,
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://idigicloudbank-acount-opening-service-1.onrender.com/api',
+  timeout: 60000, // 60s — Render free tier can be slow on cold start
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor
+// ─── Request Interceptor ─────────────────────────────────────
 api.interceptors.request.use(
   (config) => {
-    // Attach auth token if available
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -24,20 +41,73 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor with retry
+// ─── Response Interceptor ────────────────────────────────────
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      // Could refresh token here
+    if (error.response?.status === 401) {
+      // Token expired or invalid — clear auth and redirect to login
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
 );
 
-// ─── API Functions ───────────────────────────────────────────
+// ─── Auth Helpers ────────────────────────────────────────────
+export const saveAuthData = (authResponse: AuthResponse) => {
+  localStorage.setItem('token', authResponse.accessToken);
+  localStorage.setItem('user', JSON.stringify({
+    userId: authResponse.userId,
+    email: authResponse.email,
+    firstName: authResponse.firstName,
+    lastName: authResponse.lastName,
+    role: authResponse.role,
+    cbsCustomerId: authResponse.cbsCustomerId,
+    branchCode: authResponse.branchCode,
+  }));
+};
+
+export const getAuthToken = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('token');
+};
+
+export const getAuthUser = (): Partial<AuthResponse> | null => {
+  if (typeof window === 'undefined') return null;
+  const user = localStorage.getItem('user');
+  return user ? JSON.parse(user) : null;
+};
+
+export const clearAuth = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+};
+
+export const isAuthenticated = (): boolean => {
+  return !!getAuthToken();
+};
+
+// ═══════════════════════════════════════════════════════════════
+// Authentication APIs
+// ═══════════════════════════════════════════════════════════════
+
+export const loginUser = async (credentials: LoginRequest): Promise<ApiResponse<AuthResponse>> => {
+  const { data } = await api.post('/auth/login', credentials);
+  return data;
+};
+
+export const registerUser = async (userData: RegisterRequest): Promise<ApiResponse<AuthResponse>> => {
+  const { data } = await api.post('/auth/register', userData);
+  return data;
+};
+
+// ═══════════════════════════════════════════════════════════════
+// UI Bridge APIs (match frontend endpoint paths)
+// ═══════════════════════════════════════════════════════════════
 
 export const searchCustomer = async (params: CustomerSearchParams) => {
   const { data } = await api.get('/customer/search', { params });
@@ -49,7 +119,7 @@ export const getProducts = async () => {
   return data;
 };
 
-export const createAccount = async (accountData: Partial<AccountOpeningState>) => {
+export const createAccount = async (accountData: Record<string, unknown>) => {
   const { data } = await api.post('/account/create', accountData);
   return data;
 };
@@ -61,41 +131,161 @@ export const uploadDocument = async (formData: FormData) => {
   return data;
 };
 
-export const addNominee = async (nomineeData: OfflineFormData) => {
+export const addNomineeUI = async (nomineeData: Record<string, unknown>) => {
   const { data } = await api.post('/nominee', nomineeData);
   return data;
 };
 
-// ─── Mock Data (for development without backend) ────────────
+// ═══════════════════════════════════════════════════════════════
+// Account Opening — 7-Step Flow
+// ═══════════════════════════════════════════════════════════════
 
-export const MOCK_CUSTOMERS = [
-  { customerId: 'CUST001', customerName: 'Rajesh Kumar', customerType: 'Individual', branchCode: 'BR001', status: 'Active' },
-  { customerId: 'CUST002', customerName: 'Priya Sharma', customerType: 'Individual', branchCode: 'BR002', status: 'Active' },
-  { customerId: 'CUST003', customerName: 'Tata Industries Ltd', customerType: 'Corporate', branchCode: 'BR001', status: 'Active' },
-  { customerId: 'CUST004', customerName: 'Amit Patel', customerType: 'Individual', branchCode: 'BR003', status: 'Inactive' },
-  { customerId: 'CUST005', customerName: 'Global Solutions Pvt Ltd', customerType: 'Corporate', branchCode: 'BR002', status: 'Active' },
-];
+/** Step 1: Initiate new account */
+export const initiateNewAccount = async (
+  request: NewAccountRequest
+): Promise<ApiResponse<AccountOpeningResponse>> => {
+  const { data } = await api.post('/account-opening/step1/initiate', request);
+  return data;
+};
 
-export const MOCK_PRODUCTS = [
-  { productCode: 'SAV001', productName: 'Regular Savings', productClass: 'Savings', productGroup: 'Retail' },
-  { productCode: 'SAV002', productName: 'Premium Savings', productClass: 'Savings', productGroup: 'Wealth' },
-  { productCode: 'CUR001', productName: 'Business Current', productClass: 'Current', productGroup: 'Corporate' },
-  { productCode: 'SAL001', productName: 'Salary Account', productClass: 'Salary', productGroup: 'Retail' },
-];
+/** Step 2: Select product */
+export const selectProduct = async (
+  request: ProductSelectionRequest
+): Promise<ApiResponse<AccountOpeningResponse>> => {
+  const { data } = await api.post('/account-opening/step2/select-product', request);
+  return data;
+};
 
-export const MOCK_FEES = [
-  { feeName: 'Account Opening Fee', feeType: 'One Time', baseFees: 500, negotiatedType: 'Flat', negotiatedFees: 100, netFees: 400 },
-  { feeName: 'Annual Maintenance', feeType: 'Recurring', baseFees: 750, negotiatedType: 'Percentage', negotiatedFees: 10, netFees: 675 },
-  { feeName: 'Cheque Book Fee', feeType: 'One Time', baseFees: 200, negotiatedType: 'None', negotiatedFees: 0, netFees: 200 },
-  { feeName: 'Debit Card Fee', feeType: 'Recurring', baseFees: 300, negotiatedType: 'Flat', negotiatedFees: 50, netFees: 250 },
-];
+/** Step 3: Set relationship & co-applicants */
+export const setRelationship = async (
+  request: RelationshipRequest
+): Promise<ApiResponse<AccountOpeningResponse>> => {
+  const { data } = await api.post('/account-opening/step3/set-relationship', request);
+  return data;
+};
 
-export const MOCK_TRANSACTION_LIMITS = [
-  { id: '1', channel: 'Internet Banking', paymentMode: 'NEFT', paymentMethod: 'Debit', paymentType: 'Domestic', minimumLimit: 1, maximumLimit: 1000000, dailyLimit: 2000000, weeklyLimit: 10000000, monthlyLimit: 50000000 },
-  { id: '2', channel: 'Mobile Banking', paymentMode: 'IMPS', paymentMethod: 'Debit', paymentType: 'Domestic', minimumLimit: 1, maximumLimit: 500000, dailyLimit: 1000000, weeklyLimit: 5000000, monthlyLimit: 20000000 },
-  { id: '3', channel: 'Internet Banking', paymentMode: 'RTGS', paymentMethod: 'Debit', paymentType: 'Domestic', minimumLimit: 200000, maximumLimit: 5000000, dailyLimit: 10000000, weeklyLimit: 50000000, monthlyLimit: 100000000 },
-  { id: '4', channel: 'ATM', paymentMode: 'UPI', paymentMethod: 'Debit', paymentType: 'Domestic', minimumLimit: 1, maximumLimit: 100000, dailyLimit: 200000, weeklyLimit: 500000, monthlyLimit: 2000000 },
-  { id: '5', channel: 'Branch', paymentMode: 'NEFT', paymentMethod: 'Credit', paymentType: 'International', minimumLimit: 1000, maximumLimit: 2000000, dailyLimit: 5000000, weeklyLimit: 20000000, monthlyLimit: 50000000 },
-];
+/** Step 4: Upload document */
+export const uploadStepDocument = async (
+  request: DocumentUploadRequest
+): Promise<ApiResponse<AccountOpeningResponse>> => {
+  const { data } = await api.post('/account-opening/step4/upload-document', request);
+  return data;
+};
+
+/** Step 5: Save basic details */
+export const saveBasicDetails = async (
+  request: BasicDetailsRequest
+): Promise<ApiResponse<AccountOpeningResponse>> => {
+  const { data } = await api.post('/account-opening/step5/basic-details', request);
+  return data;
+};
+
+/** Step 6: Get transaction limits (read-only from CBS) */
+export const getTransactionLimits = async (
+  accountOpeningRequestId: number
+): Promise<ApiResponse<unknown>> => {
+  const { data } = await api.get(`/account-opening/step6/transaction-limits/${accountOpeningRequestId}`);
+  return data;
+};
+
+/** Step 7: Add nominees */
+export const addNominees = async (
+  request: NomineeRequest
+): Promise<ApiResponse<AccountOpeningResponse>> => {
+  const { data } = await api.post('/account-opening/step7/add-nominees', request);
+  return data;
+};
+
+/** Step 8: Initial funding */
+export const applyInitialFunding = async (
+  request: InitialFundingRequest
+): Promise<ApiResponse<AccountOpeningResponse>> => {
+  const { data } = await api.post('/account-opening/funding', request);
+  return data;
+};
+
+/** Submit application (final) */
+export const submitApplication = async (
+  accountOpeningRequestId: number
+): Promise<ApiResponse<AccountOpeningResponse>> => {
+  const { data } = await api.post(`/account-opening/submit/${accountOpeningRequestId}`);
+  return data;
+};
+
+/** Issue welcome kit */
+export const issueWelcomeKit = async (
+  accountOpeningRequestId: number
+): Promise<ApiResponse<AccountOpeningResponse>> => {
+  const { data } = await api.post(`/account-opening/welcome-kit/${accountOpeningRequestId}`);
+  return data;
+};
+
+// ─── Query APIs ──────────────────────────────────────────────
+
+/** Get account opening request by ID */
+export const getAccountOpeningById = async (
+  id: number
+): Promise<ApiResponse<AccountOpeningResponse>> => {
+  const { data } = await api.get(`/account-opening/${id}`);
+  return data;
+};
+
+/** Get all applications for the logged-in user */
+export const getMyApplications = async (): Promise<ApiResponse<AccountOpeningResponse[]>> => {
+  const { data } = await api.get('/account-opening/my-applications');
+  return data;
+};
+
+/** Admin: Get all applications */
+export const getAllApplications = async (): Promise<ApiResponse<AccountOpeningResponse[]>> => {
+  const { data } = await api.get('/account-opening/admin/all');
+  return data;
+};
+
+// ═══════════════════════════════════════════════════════════════
+// KYC APIs
+// ═══════════════════════════════════════════════════════════════
+
+/** KYC Verification */
+export const verifyKyc = async (
+  request: KycVerifyRequest
+): Promise<ApiResponse<KycResultResponse>> => {
+  const { data } = await api.post('/kyc/verify', request);
+  return data;
+};
+
+/** OCR Document Extraction */
+export const extractOcr = async (
+  request: OcrRequestBody
+): Promise<ApiResponse<KycVerifyResponse>> => {
+  const { data } = await api.post('/kyc/ocr', request);
+  return data;
+};
+
+/** Get KYC Status */
+export const getKycStatus = async (
+  accountOpeningRequestId: number
+): Promise<ApiResponse<KycStatusResponse>> => {
+  const { data } = await api.get(`/kyc/status/${accountOpeningRequestId}`);
+  return data;
+};
+
+// ─── Error Helper ────────────────────────────────────────────
+export const getErrorMessage = (error: unknown): string => {
+  if (axios.isAxiosError(error)) {
+    // Backend returns ApiResponse with message
+    const apiMessage = error.response?.data?.message;
+    if (apiMessage) return apiMessage;
+    if (error.response?.status === 401) return 'Session expired. Please login again.';
+    if (error.response?.status === 403) return 'You do not have permission to perform this action.';
+    if (error.response?.status === 404) return 'Resource not found.';
+    if (error.response?.status === 500) return 'Internal server error. Please try again later.';
+    if (error.code === 'ECONNABORTED') return 'Request timed out. The server may be starting up — please try again.';
+    if (!error.response) return 'Network error. Please check your connection.';
+    return error.message;
+  }
+  if (error instanceof Error) return error.message;
+  return 'An unexpected error occurred.';
+};
 
 export default api;

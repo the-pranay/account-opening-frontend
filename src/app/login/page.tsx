@@ -14,6 +14,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
+import { loginUser, saveAuthData, getErrorMessage } from '@/services/accountApi';
+import { useAuth } from '@/services/authContext';
 import {
   Mail,
   Lock,
@@ -32,6 +34,7 @@ interface LoginForm {
 
 export default function LoginPage() {
   const router = useRouter();
+  const { refreshAuthState } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -44,12 +47,21 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginForm) => {
     setError('');
-    console.log('Login attempt with:', data);
     setLoading(true);
-    // Simulate API call
-    await new Promise((r) => setTimeout(r, 1200));
-    setLoading(false);
-    router.push('/dashboard');
+    try {
+      const response = await loginUser({ email: data.email, password: data.password });
+      if (response.success && response.data) {
+        saveAuthData(response.data);
+        refreshAuthState();
+        router.push('/dashboard');
+      } else {
+        setError(response.message || 'Login failed. Please try again.');
+      }
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

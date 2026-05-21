@@ -14,7 +14,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '@/store/store';
 import { setCurrentStep, resetAccount, setLoading, setNewAccount, setProductSelection } from '@/store/accountSlice';
-import { createAccount } from '@/services/accountApi';
+import { submitApplication, getErrorMessage } from '@/services/accountApi';
+import { useAuth, ProtectedRoute } from '@/services/authContext';
 import AccountStepper from '@/components/stepper/AccountStepper';
 import ConfirmDialog from '@/components/modals/ConfirmDialog';
 import NewAccountStep from '@/features/accountOpening/NewAccount';
@@ -41,9 +42,10 @@ function AccountOpeningContent() {
   const accountType = searchParams.get('type') || 'savings';
   const accountLabel = ACCOUNT_TYPE_LABELS[accountType] || 'Account';
   const dispatch = useDispatch();
+  const { user } = useAuth();
   const currentStep = useSelector((state: RootState) => state.accountOpening.currentStep);
   const isLoading = useSelector((state: RootState) => state.accountOpening.isLoading);
-  const accountState = useSelector((state: RootState) => state.accountOpening);
+  const accountOpeningRequestId = useSelector((state: RootState) => state.accountOpening.accountOpeningRequestId);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Sync URL account type into Redux so forms pre-fill correctly
@@ -61,17 +63,22 @@ function AccountOpeningContent() {
   };
 
   const handleSubmit = async () => {
+    if (!accountOpeningRequestId) {
+      toast.error('No account opening request found. Please start from Step 1.');
+      return;
+    }
     dispatch(setLoading(true));
     try {
-      await createAccount(accountState);
-      toast.success('Account created successfully!');
-      dispatch(resetAccount());
-      router.push('/dashboard');
-    } catch {
-      // Mock success for development
-      toast.success('Account created successfully! (Mock)');
-      dispatch(resetAccount());
-      router.push('/dashboard');
+      const response = await submitApplication(accountOpeningRequestId);
+      if (response.success) {
+        toast.success('Account submitted successfully!');
+        dispatch(resetAccount());
+        router.push('/dashboard');
+      } else {
+        toast.error(response.message || 'Submission failed. Please try again.');
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       dispatch(setLoading(false));
       setConfirmOpen(false);
@@ -79,6 +86,10 @@ function AccountOpeningContent() {
   };
 
   const progress = ((currentStep + 1) / 7) * 100;
+
+  const userInitials = user
+    ? `${(user.firstName || '')[0] || ''}${(user.lastName || '')[0] || ''}`.toUpperCase() || 'U'
+    : 'U';
 
   const renderStep = () => {
     switch (currentStep) {
@@ -128,7 +139,7 @@ function AccountOpeningContent() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Bell size={20} color="rgba(255,255,255,0.6)" />
             <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
-            <Avatar sx={{ width: 32, height: 32, bgcolor: '#00695c', fontSize: '0.85rem' }}>BK</Avatar>
+            <Avatar sx={{ width: 32, height: 32, bgcolor: '#00695c', fontSize: '0.85rem' }}>{userInitials}</Avatar>
           </Box>
         </Toolbar>
         {/* Progress bar */}
@@ -219,8 +230,10 @@ function AccountOpeningContent() {
 
 export default function AccountOpeningPage() {
   return (
-    <Suspense fallback={<Box sx={{ minHeight: '100vh' }} />}>
-      <AccountOpeningContent />
-    </Suspense>
+    <ProtectedRoute>
+      <Suspense fallback={<Box sx={{ minHeight: '100vh' }} />}>
+        <AccountOpeningContent />
+      </Suspense>
+    </ProtectedRoute>
   );
 }

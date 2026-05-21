@@ -11,14 +11,15 @@ import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
+import CircularProgress from '@mui/material/CircularProgress';
 import { useDispatch, useSelector } from 'react-redux';
-import { setRelationship, addApplicant, removeApplicant } from '@/store/accountSlice';
+import { setRelationship, addApplicant, removeApplicant, setCbsAccountNumber, setAccountStatus } from '@/store/accountSlice';
 import type { RootState } from '@/store/store';
-import FormInput from '@/components/forms/FormInput';
 import SelectInput from '@/components/forms/SelectInput';
 import DataTable from '@/components/tables/DataTable';
 import AddApplicantModal from '@/components/modals/AddApplicantModal';
 import { MODE_OF_OPERATIONS } from '@/constants/formFields';
+import { setRelationship as setRelationshipApi, getErrorMessage } from '@/services/accountApi';
 import { createColumnHelper } from '@tanstack/react-table';
 import type { Applicant } from '@/types/accountTypes';
 import { UserPlus, Trash2 } from 'lucide-react';
@@ -27,11 +28,6 @@ import toast from 'react-hot-toast';
 const columnHelper = createColumnHelper<Applicant>();
 
 const schema = z.object({
-  accountNumber: z.string()
-    .min(1, 'Account Number is required')
-    .regex(/^[0-9]+$/, 'Account Number must contain only digits')
-    .min(8, 'Account Number must be at least 8 digits')
-    .max(20, 'Account Number must be at most 20 digits'),
   modeOfOperation: z.string().min(1, 'Mode of Operation is required'),
 });
 
@@ -45,13 +41,15 @@ interface RelationshipProps {
 export default function RelationshipStep({ onNext, onBack }: RelationshipProps) {
   const dispatch = useDispatch();
   const savedData = useSelector((state: RootState) => state.accountOpening.relationship);
+  const accountOpeningRequestId = useSelector((state: RootState) => state.accountOpening.accountOpeningRequestId);
+  const cbsAccountNumber = useSelector((state: RootState) => state.accountOpening.cbsAccountNumber);
   const [modalOpen, setModalOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const { control, handleSubmit } = useForm<FormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(schema) as any,
     defaultValues: {
-      accountNumber: savedData.accountNumber,
       modeOfOperation: savedData.modeOfOperation,
     },
   });
@@ -78,10 +76,41 @@ export default function RelationshipStep({ onNext, onBack }: RelationshipProps) 
     }),
   ];
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     dispatch(setRelationship(data));
-    toast.success('Relationship details saved');
-    onNext();
+
+    if (!accountOpeningRequestId) {
+      toast.error('No account opening request found. Please complete Step 1 first.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await setRelationshipApi({
+        accountOpeningRequestId,
+        modeOfOperation: data.modeOfOperation,
+        coApplicants: savedData.applicants.map((a) => ({
+          cbsCustomerId: a.customerId,
+          customerName: a.customerName,
+          customerRole: a.customerRole,
+          existingCustomer: a.isExistingCustomer,
+        })),
+      });
+      if (response.success) {
+        if (response.data.cbsAccountNumber) {
+          dispatch(setCbsAccountNumber(response.data.cbsAccountNumber));
+        }
+        dispatch(setAccountStatus(response.data.status));
+        toast.success('Relationship details saved');
+        onNext();
+      } else {
+        toast.error(response.message || 'Failed to set relationship');
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -90,10 +119,15 @@ export default function RelationshipStep({ onNext, onBack }: RelationshipProps) 
         Relationship
       </Typography>
 
+      {cbsAccountNumber && (
+        <Box sx={{ mb: 3, p: 2, borderRadius: '8px', bgcolor: 'rgba(0,191,165,0.08)', border: '1px solid rgba(0,191,165,0.2)' }}>
+          <Typography variant="body2" fontWeight={600} color="success.main">
+            CBS Account Number: {cbsAccountNumber}
+          </Typography>
+        </Box>
+      )}
+
       <Grid container spacing={2.5}>
-        <Grid size={{ xs: 12, sm: 6 }}>
-          <FormInput name="accountNumber" control={control} label="Account Number" required />
-        </Grid>
         <Grid size={{ xs: 12, sm: 6 }}>
           <SelectInput name="modeOfOperation" control={control} label="Mode of Operation" options={MODE_OF_OPERATIONS} required />
         </Grid>
@@ -103,7 +137,7 @@ export default function RelationshipStep({ onNext, onBack }: RelationshipProps) 
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="subtitle1" fontWeight={600}>
-          Primary Applicant
+          Co-Applicants
         </Typography>
         <Button
           variant="outlined"
@@ -130,8 +164,15 @@ export default function RelationshipStep({ onNext, onBack }: RelationshipProps) 
         <Button variant="outlined" onClick={onBack} sx={{ borderRadius: '8px', px: 4 }}>
           Back
         </Button>
-        <Button variant="contained" onClick={handleSubmit(onSubmit)} size="large" sx={{ borderRadius: '8px', px: 4 }}>
-          Save & Continue
+        <Button
+          variant="contained"
+          onClick={handleSubmit(onSubmit)}
+          size="large"
+          disabled={submitting}
+          endIcon={submitting ? <CircularProgress size={18} color="inherit" /> : undefined}
+          sx={{ borderRadius: '8px', px: 4 }}
+        >
+          {submitting ? 'Saving…' : 'Save & Continue'}
         </Button>
       </Box>
     </Paper>

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,29 +9,16 @@ import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
-import Divider from '@mui/material/Divider';
+import CircularProgress from '@mui/material/CircularProgress';
 import { useDispatch, useSelector } from 'react-redux';
-import { setProductSelection } from '@/store/accountSlice';
+import { setProductSelection, setAccountStatus } from '@/store/accountSlice';
 import type { RootState } from '@/store/store';
 import FormInput from '@/components/forms/FormInput';
 import SelectInput from '@/components/forms/SelectInput';
 import DatePickerField from '@/components/forms/DatePicker';
-import DataTable from '@/components/tables/DataTable';
 import { ACCOUNT_TYPES, PRODUCT_GROUPS, PRODUCT_CLASSES, CURRENCIES } from '@/constants/formFields';
-import { MOCK_FEES } from '@/services/accountApi';
-import { createColumnHelper } from '@tanstack/react-table';
-import type { Fee } from '@/types/accountTypes';
+import { selectProduct, getErrorMessage } from '@/services/accountApi';
 import toast from 'react-hot-toast';
-
-const columnHelper = createColumnHelper<Fee>();
-const feeColumns = [
-  columnHelper.accessor('feeName', { header: 'Fee Name' }),
-  columnHelper.accessor('feeType', { header: 'Fee Type' }),
-  columnHelper.accessor('baseFees', { header: 'Base Fees', cell: (info) => `₹${info.getValue().toLocaleString()}` }),
-  columnHelper.accessor('negotiatedType', { header: 'Negotiated Type' }),
-  columnHelper.accessor('negotiatedFees', { header: 'Negotiated Fees', cell: (info) => `₹${info.getValue().toLocaleString()}` }),
-  columnHelper.accessor('netFees', { header: 'Net Fees', cell: (info) => `₹${info.getValue().toLocaleString()}` }),
-];
 
 const schema = z.object({
   offerCode: z.string()
@@ -64,6 +51,8 @@ interface ProductSelectionProps {
 export default function ProductSelectionStep({ onNext, onBack }: ProductSelectionProps) {
   const dispatch = useDispatch();
   const savedData = useSelector((state: RootState) => state.accountOpening.productSelection);
+  const accountOpeningRequestId = useSelector((state: RootState) => state.accountOpening.accountOpeningRequestId);
+  const [submitting, setSubmitting] = useState(false);
 
   const { control, handleSubmit } = useForm<FormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -81,10 +70,37 @@ export default function ProductSelectionStep({ onNext, onBack }: ProductSelectio
     },
   });
 
-  const onSubmit = (data: FormData) => {
-    dispatch(setProductSelection({ ...data, fees: MOCK_FEES }));
-    toast.success('Product Selection saved');
-    onNext();
+  const onSubmit = async (data: FormData) => {
+    dispatch(setProductSelection(data));
+
+    if (!accountOpeningRequestId) {
+      toast.error('No account opening request found. Please complete Step 1 first.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await selectProduct({
+        accountOpeningRequestId,
+        offerCode: data.offerCode,
+        productCode: data.productCode,
+        offerName: data.offerName,
+        accountType: data.accountType,
+        productGroup: data.productGroup,
+        totalFees: 0,
+      });
+      if (response.success) {
+        dispatch(setAccountStatus(response.data.status));
+        toast.success('Product selection saved');
+        onNext();
+      } else {
+        toast.error(response.message || 'Failed to select product');
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -123,16 +139,19 @@ export default function ProductSelectionStep({ onNext, onBack }: ProductSelectio
         </Grid>
       </Grid>
 
-      <Divider sx={{ my: 4 }} />
-
-      <DataTable data={MOCK_FEES} columns={feeColumns} title="Fee Schedule" showPagination={false} />
-
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
         <Button variant="outlined" onClick={onBack} sx={{ borderRadius: '8px', px: 4 }}>
           Back
         </Button>
-        <Button variant="contained" onClick={handleSubmit(onSubmit)} size="large" sx={{ borderRadius: '8px', px: 4 }}>
-          Save & Continue
+        <Button
+          variant="contained"
+          onClick={handleSubmit(onSubmit)}
+          size="large"
+          disabled={submitting}
+          endIcon={submitting ? <CircularProgress size={18} color="inherit" /> : undefined}
+          sx={{ borderRadius: '8px', px: 4 }}
+        >
+          {submitting ? 'Saving…' : 'Save & Continue'}
         </Button>
       </Box>
     </Paper>

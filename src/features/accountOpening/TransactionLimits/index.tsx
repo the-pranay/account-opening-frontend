@@ -1,15 +1,16 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
+import CircularProgress from '@mui/material/CircularProgress';
 import { useDispatch, useSelector } from 'react-redux';
 import { setTransactionLimits } from '@/store/accountSlice';
 import type { RootState } from '@/store/store';
 import DataTable from '@/components/tables/DataTable';
-import { MOCK_TRANSACTION_LIMITS } from '@/services/accountApi';
+import { getTransactionLimits as getTransactionLimitsApi, getErrorMessage } from '@/services/accountApi';
 import { createColumnHelper } from '@tanstack/react-table';
 import type { TransactionLimit } from '@/types/accountTypes';
 import toast from 'react-hot-toast';
@@ -38,17 +39,34 @@ interface TransactionLimitsProps {
 export default function TransactionLimitsStep({ onNext, onBack }: TransactionLimitsProps) {
   const dispatch = useDispatch();
   const savedLimits = useSelector((state: RootState) => state.accountOpening.transactionLimits);
+  const accountOpeningRequestId = useSelector((state: RootState) => state.accountOpening.accountOpeningRequestId);
+  const [fetchingLimits, setFetchingLimits] = useState(false);
 
   useEffect(() => {
-    if (savedLimits.length === 0) {
-      dispatch(setTransactionLimits(MOCK_TRANSACTION_LIMITS));
-    }
-  }, [dispatch, savedLimits.length]);
+    const fetchLimits = async () => {
+      if (!accountOpeningRequestId) return;
+      if (savedLimits.length > 0) return; // Already fetched
 
-  const data = savedLimits.length > 0 ? savedLimits : MOCK_TRANSACTION_LIMITS;
+      setFetchingLimits(true);
+      try {
+        const response = await getTransactionLimitsApi(accountOpeningRequestId);
+        if (response.success && response.data) {
+          const limitsData = Array.isArray(response.data) ? response.data : [];
+          if (limitsData.length > 0) {
+            dispatch(setTransactionLimits(limitsData));
+          }
+        }
+      } catch (err) {
+        toast.error(getErrorMessage(err));
+      } finally {
+        setFetchingLimits(false);
+      }
+    };
+    fetchLimits();
+  }, [accountOpeningRequestId, dispatch, savedLimits.length]);
 
   const handleNext = () => {
-    dispatch(setTransactionLimits(data));
+    dispatch(setTransactionLimits(savedLimits));
     toast.success('Transaction limits saved');
     onNext();
   };
@@ -59,13 +77,28 @@ export default function TransactionLimitsStep({ onNext, onBack }: TransactionLim
         Transaction Limits
       </Typography>
 
-      <DataTable data={data} columns={columns} pageSize={10} />
+      {fetchingLimits ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
+          <CircularProgress size={32} sx={{ mr: 2 }} />
+          <Typography variant="body2" color="text.secondary">
+            Fetching transaction limits from CBS...
+          </Typography>
+        </Box>
+      ) : savedLimits.length > 0 ? (
+        <DataTable data={savedLimits} columns={columns} pageSize={10} />
+      ) : (
+        <Box sx={{ py: 4, textAlign: 'center' }}>
+          <Typography variant="body2" color="text.secondary">
+            No transaction limits available. They will be auto-configured after account activation.
+          </Typography>
+        </Box>
+      )}
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
         <Button variant="outlined" onClick={onBack} sx={{ borderRadius: '8px', px: 4 }}>
           Back
         </Button>
-        <Button variant="contained" onClick={handleNext} size="large" sx={{ borderRadius: '8px', px: 4 }}>
+        <Button variant="contained" onClick={handleNext} size="large" disabled={fetchingLimits} sx={{ borderRadius: '8px', px: 4 }}>
           Save & Continue
         </Button>
       </Box>

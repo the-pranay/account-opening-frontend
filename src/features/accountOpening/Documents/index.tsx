@@ -12,6 +12,7 @@ import { addDocument, removeDocument } from '@/store/accountSlice';
 import type { RootState } from '@/store/store';
 import DataTable from '@/components/tables/DataTable';
 import UploadDocumentModal from '@/components/modals/UploadDocumentModal';
+import { uploadStepDocument, getErrorMessage } from '@/services/accountApi';
 import { createColumnHelper } from '@tanstack/react-table';
 import type { AccountDocument } from '@/types/accountTypes';
 import { Upload, Trash2, FileCheck } from 'lucide-react';
@@ -27,6 +28,7 @@ interface DocumentsProps {
 export default function DocumentsStep({ onNext, onBack }: DocumentsProps) {
   const dispatch = useDispatch();
   const documents = useSelector((state: RootState) => state.accountOpening.documents);
+  const accountOpeningRequestId = useSelector((state: RootState) => state.accountOpening.accountOpeningRequestId);
   const [modalOpen, setModalOpen] = useState(false);
 
   const formatSize = (bytes: number) => {
@@ -73,6 +75,25 @@ export default function DocumentsStep({ onNext, onBack }: DocumentsProps) {
     }),
   ];
 
+  const handleSaveDocument = async (doc: AccountDocument) => {
+    dispatch(addDocument(doc));
+
+    // Also upload to backend
+    if (accountOpeningRequestId) {
+      try {
+        await uploadStepDocument({
+          accountOpeningRequestId,
+          documentType: doc.documentType,
+          documentCategory: doc.documentCategory,
+          fileName: doc.fileName,
+        });
+        toast.success('Document uploaded to server');
+      } catch (err) {
+        toast.error(getErrorMessage(err));
+      }
+    }
+  };
+
   return (
     <Paper elevation={0} sx={{ p: 4, borderRadius: '16px', border: '1px solid', borderColor: 'divider' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -98,10 +119,7 @@ export default function DocumentsStep({ onNext, onBack }: DocumentsProps) {
       <UploadDocumentModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        onSave={(doc) => {
-          dispatch(addDocument(doc));
-          toast.success('Document uploaded successfully');
-        }}
+        onSave={handleSaveDocument}
       />
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>

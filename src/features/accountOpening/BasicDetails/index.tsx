@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -14,8 +14,9 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
 import Switch from '@mui/material/Switch';
 import IconButton from '@mui/material/IconButton';
+import CircularProgress from '@mui/material/CircularProgress';
 import { useDispatch, useSelector } from 'react-redux';
-import { setBasicDetails } from '@/store/accountSlice';
+import { setBasicDetails, setAccountStatus } from '@/store/accountSlice';
 import type { RootState } from '@/store/store';
 import FormInput from '@/components/forms/FormInput';
 import SelectInput from '@/components/forms/SelectInput';
@@ -25,6 +26,7 @@ import {
   INSTRUMENT_TYPES,
   CHEQUE_TYPES,
 } from '@/constants/formFields';
+import { saveBasicDetails as saveBasicDetailsApi, getErrorMessage } from '@/services/accountApi';
 import { Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -65,6 +67,8 @@ interface BasicDetailsProps {
 export default function BasicDetailsStep({ onNext, onBack }: BasicDetailsProps) {
   const dispatch = useDispatch();
   const savedData = useSelector((state: RootState) => state.accountOpening.basicDetails);
+  const accountOpeningRequestId = useSelector((state: RootState) => state.accountOpening.accountOpeningRequestId);
+  const [submitting, setSubmitting] = useState(false);
 
   const { control, handleSubmit, watch } = useForm<FormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -88,7 +92,7 @@ export default function BasicDetailsStep({ onNext, onBack }: BasicDetailsProps) 
   const { fields, append, remove } = useFieldArray({ control, name: 'chequeBooks' });
   const hasChequeBook = watch('chequeBookFacility');
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     const statementFacility: string[] = [];
     if (data.statementEmail) statementFacility.push('email');
     if (data.statementAddress) statementFacility.push('registered_address');
@@ -110,8 +114,35 @@ export default function BasicDetailsStep({ onNext, onBack }: BasicDetailsProps) 
         accountStatementFacility: statementFacility,
       })
     );
-    toast.success('Basic details saved');
-    onNext();
+
+    if (!accountOpeningRequestId) {
+      toast.error('No account opening request found. Please complete Step 1 first.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await saveBasicDetailsApi({
+        accountOpeningRequestId,
+        preferredContactNumber: data.preferredContactNumber,
+        preferredEmail: data.preferredEmail,
+        chequeBookRequested: data.chequeBookFacility,
+        netBankingRequested: data.internetBankingView || data.internetBankingPerform,
+        mobileBankingRequested: data.internetBankingPerform,
+        passbookRequested: true,
+      });
+      if (response.success) {
+        dispatch(setAccountStatus(response.data.status));
+        toast.success('Basic details saved');
+        onNext();
+      } else {
+        toast.error(response.message || 'Failed to save basic details');
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -236,8 +267,15 @@ export default function BasicDetailsStep({ onNext, onBack }: BasicDetailsProps) 
         <Button variant="outlined" onClick={onBack} sx={{ borderRadius: '8px', px: 4 }}>
           Back
         </Button>
-        <Button variant="contained" onClick={handleSubmit(onSubmit)} size="large" sx={{ borderRadius: '8px', px: 4 }}>
-          Save & Continue
+        <Button
+          variant="contained"
+          onClick={handleSubmit(onSubmit)}
+          size="large"
+          disabled={submitting}
+          endIcon={submitting ? <CircularProgress size={18} color="inherit" /> : undefined}
+          sx={{ borderRadius: '8px', px: 4 }}
+        >
+          {submitting ? 'Saving…' : 'Save & Continue'}
         </Button>
       </Box>
     </Paper>

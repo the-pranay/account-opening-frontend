@@ -3,6 +3,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type {
   AccountOpeningState,
+  AccountStatus,
   NewAccount,
   ProductSelection,
   Relationship,
@@ -57,6 +58,9 @@ const initialBasicDetails: BasicDetails = {
 
 const initialState: AccountOpeningState = {
   currentStep: 0,
+  accountOpeningRequestId: null,
+  cbsAccountNumber: '',
+  status: '',
   newAccount: initialNewAccount,
   productSelection: initialProductSelection,
   relationship: initialRelationship,
@@ -74,6 +78,15 @@ const accountSlice = createSlice({
   reducers: {
     setCurrentStep(state, action: PayloadAction<number>) {
       state.currentStep = action.payload;
+    },
+    setAccountOpeningRequestId(state, action: PayloadAction<number>) {
+      state.accountOpeningRequestId = action.payload;
+    },
+    setCbsAccountNumber(state, action: PayloadAction<string>) {
+      state.cbsAccountNumber = action.payload;
+    },
+    setAccountStatus(state, action: PayloadAction<AccountStatus>) {
+      state.status = action.payload;
     },
     setNewAccount(state, action: PayloadAction<Partial<NewAccount>>) {
       state.newAccount = { ...state.newAccount, ...action.payload };
@@ -142,6 +155,9 @@ const accountSlice = createSlice({
 
 export const {
   setCurrentStep,
+  setAccountOpeningRequestId,
+  setCbsAccountNumber,
+  setAccountStatus,
   setNewAccount,
   setProductSelection,
   setRelationship,

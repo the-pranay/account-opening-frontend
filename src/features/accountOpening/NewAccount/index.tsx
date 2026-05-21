@@ -11,13 +11,15 @@ import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Chip from '@mui/material/Chip';
 import Alert from '@mui/material/Alert';
+import CircularProgress from '@mui/material/CircularProgress';
 import { useDispatch, useSelector } from 'react-redux';
-import { setNewAccount, importOfflineData } from '@/store/accountSlice';
+import { setNewAccount, importOfflineData, setAccountOpeningRequestId, setAccountStatus } from '@/store/accountSlice';
 import type { RootState } from '@/store/store';
 import FormInput from '@/components/forms/FormInput';
 import SelectInput from '@/components/forms/SelectInput';
 import { CUSTOMER_TYPES, PRODUCT_CLASSES, CURRENCIES } from '@/constants/formFields';
 import { parseOfflineForm } from '@/utils/offlineFormParser';
+import { initiateNewAccount, getErrorMessage } from '@/services/accountApi';
 import { FileSpreadsheet, CheckCircle, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -62,6 +64,7 @@ export default function NewAccountStep({ onNext }: NewAccountProps) {
   const dispatch = useDispatch();
   const savedData = useSelector((state: RootState) => state.accountOpening.newAccount);
   const [importResult, setImportResult] = useState<{ matched: string[]; missing: string[] } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const { control, handleSubmit, reset } = useForm<FormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -69,10 +72,29 @@ export default function NewAccountStep({ onNext }: NewAccountProps) {
     defaultValues: savedData,
   });
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     dispatch(setNewAccount(data));
-    toast.success('New Account details saved');
-    onNext();
+    setSubmitting(true);
+    try {
+      const response = await initiateNewAccount({
+        productClass: data.productClass as 'CASA' | 'LOAN' | 'TD' | 'RD',
+        customerType: data.customerType,
+        branchCode: data.branchCode,
+        currencyCode: data.currency,
+      });
+      if (response.success && response.data) {
+        dispatch(setAccountOpeningRequestId(response.data.id));
+        dispatch(setAccountStatus(response.data.status));
+        toast.success('Account initiated successfully');
+        onNext();
+      } else {
+        toast.error(response.message || 'Failed to initiate account');
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleOfflineImport = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -178,8 +200,15 @@ export default function NewAccountStep({ onNext }: NewAccountProps) {
       </Grid>
 
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 4 }}>
-        <Button variant="contained" onClick={handleSubmit(onSubmit)} size="large" sx={{ borderRadius: '8px', px: 4 }}>
-          Save & Continue
+        <Button
+          variant="contained"
+          onClick={handleSubmit(onSubmit)}
+          size="large"
+          disabled={submitting}
+          endIcon={submitting ? <CircularProgress size={18} color="inherit" /> : undefined}
+          sx={{ borderRadius: '8px', px: 4 }}
+        >
+          {submitting ? 'Initiating…' : 'Save & Continue'}
         </Button>
       </Box>
     </Paper>

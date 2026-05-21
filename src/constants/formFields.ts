@@ -11,11 +11,10 @@ export const CUSTOMER_TYPES = [
 ];
 
 export const PRODUCT_CLASSES = [
-  { value: 'savings', label: 'Savings Account' },
-  { value: 'current', label: 'Current Account' },
-  { value: 'salary', label: 'Salary Account' },
-  { value: 'nre', label: 'NRE Account' },
-  { value: 'nro', label: 'NRO Account' },
+  { value: 'CASA', label: 'CASA (Savings / Current)' },
+  { value: 'LOAN', label: 'Loan Account' },
+  { value: 'TD', label: 'Term Deposit (FD)' },
+  { value: 'RD', label: 'Recurring Deposit (RD)' },
 ];
 
 export const CURRENCIES = [
@@ -42,11 +41,11 @@ export const PRODUCT_GROUPS = [
 ];
 
 export const MODE_OF_OPERATIONS = [
-  { value: 'single', label: 'Single' },
-  { value: 'jointly', label: 'Jointly' },
-  { value: 'either_or_survivor', label: 'Either or Survivor' },
-  { value: 'anyone', label: 'Anyone' },
-  { value: 'former_or_survivor', label: 'Former or Survivor' },
+  { value: 'SINGLE', label: 'Single' },
+  { value: 'JOINTLY', label: 'Jointly' },
+  { value: 'ANYONE_OR_SURVIVOR', label: 'Anyone or Survivor' },
+  { value: 'EITHER_OR_SURVIVOR', label: 'Either or Survivor' },
+  { value: 'FORMER_OR_SURVIVOR', label: 'Former or Survivor' },
 ];
 
 export const CUSTOMER_ROLES = [
@@ -66,13 +65,12 @@ export const DOCUMENT_TYPES = [
 ];
 
 export const DOCUMENT_CATEGORIES = [
-  { value: 'aadhaar', label: 'Aadhaar Card' },
-  { value: 'pan', label: 'PAN Card' },
-  { value: 'passport', label: 'Passport' },
-  { value: 'voter_id', label: 'Voter ID' },
-  { value: 'driving_license', label: 'Driving License' },
-  { value: 'utility_bill', label: 'Utility Bill' },
-  { value: 'bank_statement', label: 'Bank Statement' },
+  { value: 'AADHAAR', label: 'Aadhaar Card' },
+  { value: 'PAN', label: 'PAN Card' },
+  { value: 'DRIVING_LICENSE', label: 'Driving License' },
+  { value: 'RATION_CARD', label: 'Ration Card' },
+  { value: 'PASSPORT', label: 'Passport' },
+  { value: 'VOTER_ID', label: 'Voter ID' },
 ];
 
 export const ADDRESS_TYPES = [

@@ -14,6 +14,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
+import { registerUser, getErrorMessage } from '@/services/accountApi';
+import toast from 'react-hot-toast';
 import {
   Mail,
   Lock,
@@ -27,9 +29,10 @@ import {
 } from 'lucide-react';
 
 interface SignupForm {
-  fullName: string;
+  firstName: string;
+  lastName: string;
   email: string;
-  phone: string;
+  mobileNumber: string;
   password: string;
   confirmPassword: string;
   terms: boolean;
@@ -49,9 +52,10 @@ export default function SignupPage() {
     formState: { errors },
   } = useForm<SignupForm>({
     defaultValues: {
-      fullName: '',
+      firstName: '',
+      lastName: '',
       email: '',
-      phone: '',
+      mobileNumber: '',
       password: '',
       confirmPassword: '',
       terms: false,
@@ -62,11 +66,26 @@ export default function SignupPage() {
 
   const onSubmit = async (data: SignupForm) => {
     setError('');
-    console.log('Signup attempt with:', data);
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setLoading(false);
-    router.push('/login');
+    try {
+      const response = await registerUser({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        password: data.password,
+        mobileNumber: data.mobileNumber,
+      });
+      if (response.success) {
+        toast.success('Account created successfully! Please sign in.');
+        router.push('/login');
+      } else {
+        setError(response.message || 'Registration failed. Please try again.');
+      }
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -200,28 +219,50 @@ export default function SignupPage() {
           )}
 
           <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
-            {/* Full Name */}
-            <Typography variant="body2" fontWeight={600} sx={{ mb: 0.8 }}>
-              Full Name
-            </Typography>
-            <TextField
-              fullWidth
-              placeholder="John Doe"
-              error={!!errors.fullName}
-              helperText={errors.fullName?.message}
-              {...register('fullName', {
-                required: 'Full name is required',
-                minLength: { value: 2, message: 'Minimum 2 characters' },
-              })}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <User size={18} color="#546e7a" />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{ mb: 2.5, '& .MuiOutlinedInput-root': { borderRadius: '10px', backgroundColor: '#fff' } }}
-            />
+            {/* First Name & Last Name */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 2.5 }}>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="body2" fontWeight={600} sx={{ mb: 0.8 }}>
+                  First Name
+                </Typography>
+                <TextField
+                  fullWidth
+                  placeholder="John"
+                  error={!!errors.firstName}
+                  helperText={errors.firstName?.message}
+                  {...register('firstName', {
+                    required: 'First name is required',
+                    minLength: { value: 2, message: 'Min 2 characters' },
+                    maxLength: { value: 50, message: 'Max 50 characters' },
+                  })}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <User size={18} color="#546e7a" />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px', backgroundColor: '#fff' } }}
+                />
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="body2" fontWeight={600} sx={{ mb: 0.8 }}>
+                  Last Name
+                </Typography>
+                <TextField
+                  fullWidth
+                  placeholder="Doe"
+                  error={!!errors.lastName}
+                  helperText={errors.lastName?.message}
+                  {...register('lastName', {
+                    required: 'Last name is required',
+                    minLength: { value: 2, message: 'Min 2 characters' },
+                    maxLength: { value: 50, message: 'Max 50 characters' },
+                  })}
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px', backgroundColor: '#fff' } }}
+                />
+              </Box>
+            </Box>
 
             {/* Email */}
             <Typography variant="body2" fontWeight={600} sx={{ mb: 0.8 }}>
@@ -246,18 +287,18 @@ export default function SignupPage() {
               sx={{ mb: 2.5, '& .MuiOutlinedInput-root': { borderRadius: '10px', backgroundColor: '#fff' } }}
             />
 
-            {/* Phone */}
+            {/* Mobile Number */}
             <Typography variant="body2" fontWeight={600} sx={{ mb: 0.8 }}>
-              Phone Number
+              Mobile Number
             </Typography>
             <TextField
               fullWidth
-              placeholder="+91 98765 43210"
-              error={!!errors.phone}
-              helperText={errors.phone?.message}
-              {...register('phone', {
-                required: 'Phone number is required',
-                pattern: { value: /^[\d\s+()-]{10,15}$/, message: 'Enter a valid phone number' },
+              placeholder="9876543210"
+              error={!!errors.mobileNumber}
+              helperText={errors.mobileNumber?.message}
+              {...register('mobileNumber', {
+                required: 'Mobile number is required',
+                pattern: { value: /^[6-9]\d{9}$/, message: 'Enter a valid 10-digit Indian mobile number' },
               })}
               InputProps={{
                 startAdornment: (
@@ -283,8 +324,8 @@ export default function SignupPage() {
                 required: 'Password is required',
                 minLength: { value: 8, message: 'Minimum 8 characters' },
                 pattern: {
-                  value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-                  message: 'Must include uppercase, lowercase, and number',
+                  value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/,
+                  message: 'Must include uppercase, lowercase, number, and special character (@$!%*?&)',
                 },
               })}
               InputProps={{
