@@ -18,11 +18,16 @@ import type {
   KycResultResponse,
   KycVerifyResponse,
   KycStatusResponse,
+  UiDocumentUploadRequest,
 } from '@/types/accountTypes';
 
 // ─── Axios Instance ──────────────────────────────────────────
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  'https://idigicloudbank-acount-opening-service-1.onrender.com/api';
+
 const api = axios.create({
-  baseURL: 'https://idigicloudbank-acount-opening-service-1.onrender.com/api',
+  baseURL: API_BASE_URL,
   timeout: 180000, // 180s — Render free tier needs time for cold start
   headers: {
     'Content-Type': 'application/json',
@@ -137,8 +142,19 @@ export const createAccount = async (accountData: Record<string, unknown>) => {
   return data;
 };
 
-export const uploadDocument = async (formData: FormData) => {
+export const uploadDocument = async (
+  request: UiDocumentUploadRequest
+): Promise<ApiResponse<Record<string, unknown>>> => {
+  const formData = new FormData();
+  formData.append('file', request.file);
+
   const { data } = await api.post('/document/upload', formData, {
+    params: {
+      documentType: request.documentType,
+      documentCategory: request.documentCategory,
+      customerId: request.customerId,
+      accountOpeningId: request.accountOpeningId,
+    },
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return data;

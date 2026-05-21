@@ -80,6 +80,14 @@ export interface DocumentUploadRequest {
   filePath?: string;
 }
 
+export interface UiDocumentUploadRequest {
+  file: File;
+  documentType?: string;
+  documentCategory?: string;
+  customerId?: string;
+  accountOpeningId?: number | string;
+}
+
 export interface BasicDetailsRequest {
   accountOpeningRequestId: number;
   accountName?: string;

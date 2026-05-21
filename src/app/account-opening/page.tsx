@@ -36,6 +36,14 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   salary: 'Salary Account',
 };
 
+const PRODUCT_CLASS_BY_ACCOUNT_TYPE: Record<string, 'CASA' | 'TD' | 'RD'> = {
+  savings: 'CASA',
+  current: 'CASA',
+  salary: 'CASA',
+  fd: 'TD',
+  rd: 'RD',
+};
+
 function AccountOpeningContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -50,8 +58,9 @@ function AccountOpeningContent() {
 
   // Sync URL account type into Redux so forms pre-fill correctly
   useEffect(() => {
-    dispatch(setNewAccount({ productClass: accountType }));
-    dispatch(setProductSelection({ accountType }));
+    const productClass = PRODUCT_CLASS_BY_ACCOUNT_TYPE[accountType] || 'CASA';
+    dispatch(setNewAccount({ productClass }));
+    dispatch(setProductSelection({ accountType, productClass }));
   }, [accountType, dispatch]);
 
   const goNext = () => dispatch(setCurrentStep(currentStep + 1));

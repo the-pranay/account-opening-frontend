@@ -8,11 +8,11 @@ import Paper from '@mui/material/Paper';
 import IconButton from '@mui/material/IconButton';
 import Chip from '@mui/material/Chip';
 import { useDispatch, useSelector } from 'react-redux';
-import { addDocument, removeDocument } from '@/store/accountSlice';
+import { addDocument, removeDocument, setAccountStatus } from '@/store/accountSlice';
 import type { RootState } from '@/store/store';
 import DataTable from '@/components/tables/DataTable';
 import UploadDocumentModal from '@/components/modals/UploadDocumentModal';
-import { uploadStepDocument, getErrorMessage } from '@/services/accountApi';
+import { uploadDocument, uploadStepDocument, getErrorMessage } from '@/services/accountApi';
 import { createColumnHelper } from '@tanstack/react-table';
 import type { AccountDocument } from '@/types/accountTypes';
 import { Upload, Trash2, FileCheck } from 'lucide-react';
@@ -76,21 +76,61 @@ export default function DocumentsStep({ onNext, onBack }: DocumentsProps) {
   ];
 
   const handleSaveDocument = async (doc: AccountDocument) => {
-    dispatch(addDocument(doc));
+    if (!accountOpeningRequestId) {
+      toast.error('No account opening request found. Please complete Step 1 first.');
+      return false;
+    }
 
-    // Also upload to backend
-    if (accountOpeningRequestId) {
-      try {
-        await uploadStepDocument({
+    if (!doc.file) {
+      toast.error('Please select a document file to upload.');
+      return false;
+    }
+
+    try {
+      const uploadResponse = await uploadDocument({
+        file: doc.file,
+        documentType: doc.documentType,
+        documentCategory: doc.documentCategory,
+        customerId: doc.customerId,
+        accountOpeningId: accountOpeningRequestId,
+      });
+
+      if (!uploadResponse.success) {
+        toast.error(uploadResponse.message || 'Document upload failed');
+        return false;
+      }
+
+      const uploaded = uploadResponse.data || {};
+      const documentId =
+        typeof uploaded.documentId === 'string' ? uploaded.documentId : undefined;
+      const filePath =
+        typeof uploaded.filePath === 'string'
+          ? uploaded.filePath
+          : typeof uploaded.documentPath === 'string'
+            ? uploaded.documentPath
+            : undefined;
+
+      const stepResponse = await uploadStepDocument({
           accountOpeningRequestId,
           documentType: doc.documentType,
           documentCategory: doc.documentCategory,
           fileName: doc.fileName,
+          documentId,
+          filePath,
         });
+
+      if (stepResponse.success) {
+        dispatch(addDocument({ ...doc, id: documentId || doc.id }));
+        dispatch(setAccountStatus(stepResponse.data.status));
         toast.success('Document uploaded to server');
-      } catch (err) {
-        toast.error(getErrorMessage(err));
+        return true;
+      } else {
+        toast.error(stepResponse.message || 'Failed to attach document to account');
+        return false;
       }
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+      return false;
     }
   };
 

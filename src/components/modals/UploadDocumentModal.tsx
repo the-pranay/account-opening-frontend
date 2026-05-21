@@ -31,11 +31,12 @@ type FormData = z.infer<typeof schema>;
 interface UploadDocumentModalProps {
   open: boolean;
   onClose: () => void;
-  onSave: (doc: AccountDocument) => void;
+  onSave: (doc: AccountDocument) => void | boolean | Promise<void | boolean>;
 }
 
 export default function UploadDocumentModal({ open, onClose, onSave }: UploadDocumentModalProps) {
   const [files, setFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const { control, handleSubmit, reset } = useForm<FormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -51,7 +52,7 @@ export default function UploadDocumentModal({ open, onClose, onSave }: UploadDoc
     setFiles(accepted);
   };
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     if (files.length === 0) return;
     const file = files[0];
     const doc: AccountDocument = {
@@ -64,10 +65,16 @@ export default function UploadDocumentModal({ open, onClose, onSave }: UploadDoc
       uploadDate: new Date().toISOString(),
       file,
     };
-    onSave(doc);
-    reset();
-    setFiles([]);
-    onClose();
+    setUploading(true);
+    try {
+      const result = await onSave(doc);
+      if (result === false) return;
+      reset();
+      setFiles([]);
+      onClose();
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -98,16 +105,16 @@ export default function UploadDocumentModal({ open, onClose, onSave }: UploadDoc
         </Grid>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} variant="outlined" sx={{ borderRadius: '8px' }}>
+        <Button onClick={onClose} variant="outlined" disabled={uploading} sx={{ borderRadius: '8px' }}>
           Cancel
         </Button>
         <Button
           onClick={handleSubmit(onSubmit)}
           variant="contained"
-          disabled={files.length === 0}
+          disabled={files.length === 0 || uploading}
           sx={{ borderRadius: '8px' }}
         >
-          Upload
+          {uploading ? 'Uploading...' : 'Upload'}
         </Button>
       </DialogActions>
     </Dialog>

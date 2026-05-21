@@ -58,6 +58,14 @@ const schema = z.object({
 });
 
 type FormData = z.infer<typeof schema>;
+type BooleanFieldName =
+  | 'chequeBookFacility'
+  | 'internetBankingView'
+  | 'internetBankingPerform'
+  | 'internetBankingApprove'
+  | 'statementEmail'
+  | 'statementAddress'
+  | 'statementBranch';
 
 interface BasicDetailsProps {
   onNext: () => void;
@@ -70,7 +78,7 @@ export default function BasicDetailsStep({ onNext, onBack }: BasicDetailsProps) 
   const accountOpeningRequestId = useSelector((state: RootState) => state.accountOpening.accountOpeningRequestId);
   const [submitting, setSubmitting] = useState(false);
 
-  const { control, handleSubmit, watch } = useForm<FormData>({
+  const { control, handleSubmit, watch, setValue } = useForm<FormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(schema) as any,
     defaultValues: {
@@ -91,6 +99,16 @@ export default function BasicDetailsStep({ onNext, onBack }: BasicDetailsProps) 
 
   const { fields, append, remove } = useFieldArray({ control, name: 'chequeBooks' });
   const hasChequeBook = watch('chequeBookFacility');
+  const internetBankingView = watch('internetBankingView');
+  const internetBankingPerform = watch('internetBankingPerform');
+  const internetBankingApprove = watch('internetBankingApprove');
+  const statementEmail = watch('statementEmail');
+  const statementAddress = watch('statementAddress');
+  const statementBranch = watch('statementBranch');
+
+  const setCheckedValue = (name: BooleanFieldName, checked: boolean) => {
+    setValue(name, checked, { shouldDirty: true, shouldValidate: true });
+  };
 
   const onSubmit = async (data: FormData) => {
     const statementFacility: string[] = [];
@@ -181,7 +199,7 @@ export default function BasicDetailsStep({ onNext, onBack }: BasicDetailsProps) 
           control={
             <Switch
               checked={hasChequeBook}
-              onChange={() => {}} // controlled by RHF
+              onChange={(_, checked) => setCheckedValue('chequeBookFacility', checked)}
               color="primary"
             />
           }
@@ -229,15 +247,30 @@ export default function BasicDetailsStep({ onNext, onBack }: BasicDetailsProps) 
       </Typography>
       <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
         <FormControlLabel
-          control={<Checkbox defaultChecked={savedData.internetBanking.view} />}
+          control={
+            <Checkbox
+              checked={internetBankingView}
+              onChange={(e) => setCheckedValue('internetBankingView', e.target.checked)}
+            />
+          }
           label="View"
         />
         <FormControlLabel
-          control={<Checkbox defaultChecked={savedData.internetBanking.perform} />}
+          control={
+            <Checkbox
+              checked={internetBankingPerform}
+              onChange={(e) => setCheckedValue('internetBankingPerform', e.target.checked)}
+            />
+          }
           label="Perform"
         />
         <FormControlLabel
-          control={<Checkbox defaultChecked={savedData.internetBanking.approve} />}
+          control={
+            <Checkbox
+              checked={internetBankingApprove}
+              onChange={(e) => setCheckedValue('internetBankingApprove', e.target.checked)}
+            />
+          }
           label="Approve"
         />
       </Box>
@@ -250,15 +283,30 @@ export default function BasicDetailsStep({ onNext, onBack }: BasicDetailsProps) 
       </Typography>
       <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
         <FormControlLabel
-          control={<Checkbox defaultChecked={savedData.accountStatementFacility.includes('email')} />}
+          control={
+            <Checkbox
+              checked={statementEmail}
+              onChange={(e) => setCheckedValue('statementEmail', e.target.checked)}
+            />
+          }
           label="Email"
         />
         <FormControlLabel
-          control={<Checkbox defaultChecked={savedData.accountStatementFacility.includes('registered_address')} />}
+          control={
+            <Checkbox
+              checked={statementAddress}
+              onChange={(e) => setCheckedValue('statementAddress', e.target.checked)}
+            />
+          }
           label="Registered Address"
         />
         <FormControlLabel
-          control={<Checkbox defaultChecked={savedData.accountStatementFacility.includes('branch_pickup')} />}
+          control={
+            <Checkbox
+              checked={statementBranch}
+              onChange={(e) => setCheckedValue('statementBranch', e.target.checked)}
+            />
+          }
           label="Branch Pickup"
         />
       </Box>

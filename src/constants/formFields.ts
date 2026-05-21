@@ -57,20 +57,20 @@ export const CUSTOMER_ROLES = [
 ];
 
 export const DOCUMENT_TYPES = [
-  { value: 'identity', label: 'Identity Proof' },
-  { value: 'address', label: 'Address Proof' },
-  { value: 'photograph', label: 'Photograph' },
-  { value: 'income', label: 'Income Proof' },
-  { value: 'signature', label: 'Signature Card' },
-];
-
-export const DOCUMENT_CATEGORIES = [
   { value: 'AADHAAR', label: 'Aadhaar Card' },
   { value: 'PAN', label: 'PAN Card' },
   { value: 'DRIVING_LICENSE', label: 'Driving License' },
   { value: 'RATION_CARD', label: 'Ration Card' },
   { value: 'PASSPORT', label: 'Passport' },
   { value: 'VOTER_ID', label: 'Voter ID' },
+];
+
+export const DOCUMENT_CATEGORIES = [
+  { value: 'IDENTITY_PROOF', label: 'Identity Proof' },
+  { value: 'ADDRESS_PROOF', label: 'Address Proof' },
+  { value: 'PHOTOGRAPH', label: 'Photograph' },
+  { value: 'INCOME_PROOF', label: 'Income Proof' },
+  { value: 'SIGNATURE_CARD', label: 'Signature Card' },
 ];
 
 export const ADDRESS_TYPES = [
