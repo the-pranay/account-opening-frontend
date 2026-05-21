@@ -22,8 +22,8 @@ import type {
 
 // ─── Axios Instance ──────────────────────────────────────────
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://idigicloudbank-acount-opening-service-1.onrender.com/api',
-  timeout: 60000, // 60s — Render free tier can be slow on cold start
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  timeout: 180000, // 180s — Render free tier needs time for cold start
   headers: {
     'Content-Type': 'application/json',
   },
@@ -41,10 +41,23 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ─── Response Interceptor ────────────────────────────────────
+// ─── Response Interceptor (with auto-retry for timeouts) ─────
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    const config = error.config;
+
+    // Auto-retry on timeout or network error (up to 2 retries)
+    if (
+      (error.code === 'ECONNABORTED' || !error.response) &&
+      config &&
+      (!config._retryCount || config._retryCount < 2)
+    ) {
+      config._retryCount = (config._retryCount || 0) + 1;
+      console.log(`Retrying request (attempt ${config._retryCount}/2): ${config.url}`);
+      return api(config);
+    }
+
     if (error.response?.status === 401) {
       // Token expired or invalid — clear auth and redirect to login
       if (typeof window !== 'undefined') {
