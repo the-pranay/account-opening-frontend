@@ -35,7 +35,7 @@ import DocumentsStep from '@/features/accountOpening/Documents';
 import BasicDetailsStep from '@/features/accountOpening/BasicDetails';
 import TransactionLimitsStep from '@/features/accountOpening/TransactionLimits';
 import NomineeStep from '@/features/accountOpening/Nominee';
-import { Bell, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Bell, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const ACCOUNT_TYPE_LABELS: Record<string, string> = {
@@ -70,13 +70,7 @@ function AccountOpeningContent() {
   const currentStep = useSelector((state: RootState) => state.accountOpening.currentStep);
   const isLoading = useSelector((state: RootState) => state.accountOpening.isLoading);
 
-  // Read all step data from Redux
-  const newAccount = useSelector((state: RootState) => state.accountOpening.newAccount);
-  const productSelection = useSelector((state: RootState) => state.accountOpening.productSelection);
-  const relationship = useSelector((state: RootState) => state.accountOpening.relationship);
-  const documents = useSelector((state: RootState) => state.accountOpening.documents);
-  const basicDetails = useSelector((state: RootState) => state.accountOpening.basicDetails);
-  const nominees = useSelector((state: RootState) => state.accountOpening.nominees);
+  // Read all step data from Redux (Currently unused)
 
   const [confirmOpen, setConfirmOpen] = useState(false);
 
