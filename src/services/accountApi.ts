@@ -322,7 +322,11 @@ export const getErrorMessage = (error: unknown): string => {
     if (error.response?.status === 403) return 'You do not have permission to perform this action.';
     if (error.response?.status === 404) return 'Resource not found.';
     if (error.response?.status === 500) {
-      return `Backend returned 500 for ${error.config?.url || 'this request'}. Check the selected branch/customer values or backend logs.`;
+      const url = error.config?.url || '';
+      if (url.includes('step1/initiate')) {
+        return 'Step 1 failed (500): User likely has no CBS Customer ID. Re-register with CBS service running, or check backend logs.';
+      }
+      return `Server error (500) on ${url || 'this request'}. Check backend logs for the full stack trace.`;
     }
     if (error.code === 'ECONNABORTED') return 'Request timed out. The server may be starting up — please try again.';
     if (!error.response) return 'Network error. Please check your connection.';

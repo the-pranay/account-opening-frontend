@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import IconButton from '@mui/material/IconButton';
+import CircularProgress from '@mui/material/CircularProgress';
 import { useDispatch, useSelector } from 'react-redux';
 import { addNominee, removeNominee } from '@/store/accountSlice';
 import type { RootState } from '@/store/store';
@@ -15,6 +16,7 @@ import { createColumnHelper } from '@tanstack/react-table';
 import type { Nominee } from '@/types/accountTypes';
 import { UserPlus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { addNominees, getErrorMessage } from '@/services/accountApi';
 
 const columnHelper = createColumnHelper<Nominee>();
 
@@ -26,7 +28,9 @@ interface NomineeProps {
 export default function NomineeStep({ onBack, onComplete }: NomineeProps) {
   const dispatch = useDispatch();
   const nominees = useSelector((state: RootState) => state.accountOpening.nominees);
+  const accountOpeningRequestId = useSelector((state: RootState) => state.accountOpening.accountOpeningRequestId);
   const [modalOpen, setModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const columns = [
     columnHelper.accessor('firstName', {
@@ -61,12 +65,46 @@ export default function NomineeStep({ onBack, onComplete }: NomineeProps) {
     }),
   ];
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     if (nominees.length === 0) {
       toast.error('Please add at least one nominee before submitting');
       return;
     }
-    onComplete(); // Opens the confirm dialog — backend calls happen in orchestrator
+    
+    if (!accountOpeningRequestId) {
+      toast.error('Account Opening ID is missing. Please complete Step 1 first.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const response = await addNominees({
+        accountOpeningRequestId,
+        nominees: nominees.map((n) => ({
+          firstName: n.firstName,
+          middleName: n.middleName || undefined,
+          lastName: n.lastName || undefined,
+          gender: n.gender,
+          dateOfBirth: n.dateOfBirth,
+          relationship: n.relationship,
+          sharePercentage: n.shareHoldingPercentage,
+          addressLine1: n.address?.addressLine1,
+          addressLine2: n.address?.addressLine2,
+          country: n.address?.country,
+          postalCode: n.address?.postalCode,
+        })),
+      });
+
+      if (response.success) {
+        onComplete(); // Opens the confirm dialog for final submit
+      } else {
+        throw new Error(response.message || 'Failed to save nominees');
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -105,6 +143,8 @@ export default function NomineeStep({ onBack, onComplete }: NomineeProps) {
           color="success"
           onClick={handleComplete}
           size="large"
+          disabled={isSaving}
+          startIcon={isSaving ? <CircularProgress size={20} color="inherit" /> : null}
           sx={{ borderRadius: '8px', px: 4 }}
         >
           Submit Account

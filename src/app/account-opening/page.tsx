@@ -22,13 +22,6 @@ import {
   setProductSelection,
 } from '@/store/accountSlice';
 import {
-  initiateNewAccount,
-  selectProduct,
-  setRelationship as setRelationshipApi,
-  uploadDocument,
-  uploadStepDocument,
-  saveBasicDetails as saveBasicDetailsApi,
-  addNominees,
   submitApplication,
   getErrorMessage,
 } from '@/services/accountApi';
@@ -61,16 +54,7 @@ const PRODUCT_CLASS_BY_ACCOUNT_TYPE: Record<string, 'CASA' | 'TD' | 'RD'> = {
   rd: 'RD',
 };
 
-// Individual submit progress steps shown in the overlay
-const SUBMIT_STAGES = [
-  'Initiating account...',
-  'Saving product selection...',
-  'Saving relationship details...',
-  'Uploading documents...',
-  'Saving basic details...',
-  'Adding nominees...',
-  'Finalizing & submitting account...',
-];
+
 
 function AccountOpeningContent() {
   const router = useRouter();
@@ -79,6 +63,9 @@ function AccountOpeningContent() {
   const accountLabel = ACCOUNT_TYPE_LABELS[accountType] || 'Account';
   const dispatch = useDispatch();
   const { user } = useAuth();
+
+  // ── Pre-flight: check if user has a CBS Customer ID ──────────
+  const hasCbsId = !!(user?.cbsCustomerId);
 
   const currentStep = useSelector((state: RootState) => state.accountOpening.currentStep);
   const isLoading = useSelector((state: RootState) => state.accountOpening.isLoading);
@@ -92,7 +79,8 @@ function AccountOpeningContent() {
   const nominees = useSelector((state: RootState) => state.accountOpening.nominees);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [submitStage, setSubmitStage] = useState(0); // 0 = not submitting
+
+  const accountOpeningRequestId = useSelector((state: RootState) => state.accountOpening.accountOpeningRequestId);
 
   // Sync URL account type into Redux so forms pre-fill correctly
   useEffect(() => {
@@ -100,6 +88,16 @@ function AccountOpeningContent() {
     dispatch(setNewAccount({ productClass }));
     dispatch(setProductSelection({ accountType, productClass }));
   }, [accountType, dispatch]);
+
+  // Show warning toast if CBS Customer ID is missing
+  useEffect(() => {
+    if (!hasCbsId) {
+      toast.error(
+        'CBS Customer ID Missing: Your account was registered without a valid CBS ID — this will cause errors when submitting. Please log out and register again.',
+        { duration: 8000, id: 'cbs-missing-toast' }
+      );
+    }
+  }, [hasCbsId]);
 
   const goNext = () => dispatch(setCurrentStep(currentStep + 1));
   const goBack = () => dispatch(setCurrentStep(currentStep - 1));
@@ -109,148 +107,17 @@ function AccountOpeningContent() {
     }
   };
 
-  /**
-   * SINGLE BATCH SUBMIT — fires all API calls sequentially after user confirms on Step 7.
-   * 1. Initiate account          → get accountOpeningRequestId
-   * 2. Select product
-   * 3. Set relationship
-   * 4. Upload each document (file upload + step attachment)
-   * 5. Save basic details
-   * 6. Add nominees
-   * 7. Final submit
-   */
   const handleSubmit = async () => {
+    if (!accountOpeningRequestId) {
+      toast.error('Account Opening ID is missing. Please complete the form properly.');
+      setConfirmOpen(false);
+      return;
+    }
+
     dispatch(setLoading(true));
-    setSubmitStage(1);
 
     try {
-      // ── Step 1: Initiate account ──────────────────────────────
-      const step1Response = await initiateNewAccount({
-        productClass: newAccount.productClass as 'CASA' | 'LOAN' | 'TD' | 'RD',
-        customerType: newAccount.customerType,
-        branchCode: newAccount.branchCode,
-        currencyCode: newAccount.currency,
-      });
-
-      if (!step1Response.success || !step1Response.data) {
-        throw new Error(step1Response.message || 'Failed to initiate account');
-      }
-      const accountOpeningRequestId = step1Response.data.id;
-
-      // ── Step 2: Select product ────────────────────────────────
-      setSubmitStage(2);
-      const step2Response = await selectProduct({
-        accountOpeningRequestId,
-        offerCode: productSelection.offerCode,
-        productCode: productSelection.productCode,
-        offerName: productSelection.offerName,
-        accountType: productSelection.accountType,
-        productGroup: productSelection.productGroup,
-        totalFees: 0,
-      });
-
-      if (!step2Response.success) {
-        throw new Error(step2Response.message || 'Failed to save product selection');
-      }
-
-      // ── Step 3: Set relationship ──────────────────────────────
-      setSubmitStage(3);
-      const step3Response = await setRelationshipApi({
-        accountOpeningRequestId,
-        modeOfOperation: relationship.modeOfOperation,
-        coApplicants: relationship.applicants.map((a) => ({
-          cbsCustomerId: a.customerId,
-          customerName: a.customerName,
-          customerRole: a.customerRole,
-          existingCustomer: a.isExistingCustomer,
-        })),
-      });
-
-      if (!step3Response.success) {
-        throw new Error(step3Response.message || 'Failed to save relationship details');
-      }
-
-      // ── Step 4: Upload documents ──────────────────────────────
-      setSubmitStage(4);
-      for (const doc of documents) {
-        if (!doc.file) continue;
-
-        const uploadResponse = await uploadDocument({
-          file: doc.file,
-          documentType: doc.documentType,
-          documentCategory: doc.documentCategory,
-          customerId: doc.customerId,
-          accountOpeningId: accountOpeningRequestId,
-        });
-
-        if (!uploadResponse.success) {
-          throw new Error(uploadResponse.message || `Failed to upload document: ${doc.fileName}`);
-        }
-
-        const uploaded = uploadResponse.data || {};
-        const documentId = typeof uploaded.documentId === 'string' ? uploaded.documentId : undefined;
-        const filePath =
-          typeof uploaded.filePath === 'string'
-            ? uploaded.filePath
-            : typeof uploaded.documentPath === 'string'
-              ? uploaded.documentPath
-              : undefined;
-
-        const stepDocResponse = await uploadStepDocument({
-          accountOpeningRequestId,
-          documentType: doc.documentType,
-          documentCategory: doc.documentCategory,
-          fileName: doc.fileName,
-          documentId,
-          filePath,
-        });
-
-        if (!stepDocResponse.success) {
-          throw new Error(stepDocResponse.message || `Failed to attach document: ${doc.fileName}`);
-        }
-      }
-
-      // ── Step 5: Save basic details ────────────────────────────
-      setSubmitStage(5);
-      const step5Response = await saveBasicDetailsApi({
-        accountOpeningRequestId,
-        preferredContactNumber: basicDetails.preferredContactNumber,
-        preferredEmail: basicDetails.preferredEmail,
-        chequeBookRequested: basicDetails.chequeBookFacility,
-        netBankingRequested: basicDetails.internetBanking.view || basicDetails.internetBanking.perform,
-        mobileBankingRequested: basicDetails.internetBanking.perform,
-        passbookRequested: true,
-      });
-
-      if (!step5Response.success) {
-        throw new Error(step5Response.message || 'Failed to save basic details');
-      }
-
-      // ── Step 6: Add nominees ──────────────────────────────────
-      setSubmitStage(6);
-      const step6Response = await addNominees({
-        accountOpeningRequestId,
-        nominees: nominees.map((n) => ({
-          firstName: n.firstName,
-          middleName: n.middleName || undefined,
-          lastName: n.lastName || undefined,
-          gender: n.gender,
-          dateOfBirth: n.dateOfBirth,
-          relationship: n.relationship,
-          sharePercentage: n.shareHoldingPercentage,
-          addressLine1: n.address?.addressLine1,
-          addressLine2: n.address?.addressLine2,
-          country: n.address?.country,
-          postalCode: n.address?.postalCode,
-        })),
-      });
-
-      if (!step6Response.success) {
-        throw new Error(step6Response.message || 'Failed to save nominees');
-      }
-
-      // ── Step 7: Final submit ──────────────────────────────────
-      setSubmitStage(7);
+      // ── Final submit ──────────────────────────────────
       const finalResponse = await submitApplication(accountOpeningRequestId);
       if (!finalResponse.success) {
         throw new Error(finalResponse.message || 'Final submission failed');
@@ -262,11 +129,10 @@ function AccountOpeningContent() {
 
     } catch (err) {
       const message = getErrorMessage(err);
-      toast.error(`Submission failed at Step ${submitStage}: ${message}`);
-      console.error('Batch submit failed at stage', submitStage, err);
+      toast.error(`Submission failed: ${message}`, { duration: 8000 });
+      console.error('Final submit failed', err);
     } finally {
       dispatch(setLoading(false));
-      setSubmitStage(0);
       setConfirmOpen(false);
     }
   };
@@ -346,7 +212,8 @@ function AccountOpeningContent() {
       </AppBar>
 
       <Container maxWidth="xl" sx={{ py: 4 }}>
-        {/* Back button + title */}
+
+      {/* Back button + title */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
           <Button
             variant="text"
@@ -381,110 +248,7 @@ function AccountOpeningContent() {
         loading={isLoading}
       />
 
-      {/* Full-screen submit progress overlay */}
-      {isLoading && submitStage > 0 && (
-        <Box
-          sx={{
-            position: 'fixed',
-            inset: 0,
-            bgcolor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-          }}
-        >
-          <Box
-            sx={{
-              bgcolor: 'white',
-              borderRadius: '20px',
-              p: 4,
-              width: 420,
-              boxShadow: '0 24px 80px rgba(0,0,0,0.25)',
-            }}
-          >
-            <Typography variant="h6" fontWeight={700} sx={{ mb: 0.5 }}>
-              Submitting Application
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Please wait while we process all 7 steps...
-            </Typography>
 
-            {/* Stage list */}
-            {SUBMIT_STAGES.map((stage, index) => {
-              const stageNum = index + 1;
-              const isDone = stageNum < submitStage;
-              const isActive = stageNum === submitStage;
-              return (
-                <Box
-                  key={stage}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1.5,
-                    py: 0.8,
-                    opacity: stageNum > submitStage ? 0.35 : 1,
-                    transition: 'opacity 0.3s',
-                  }}
-                >
-                  {isDone ? (
-                    <CheckCircle2 size={18} color="#00695c" />
-                  ) : (
-                    <Box
-                      sx={{
-                        width: 18,
-                        height: 18,
-                        borderRadius: '50%',
-                        border: '2px solid',
-                        borderColor: isActive ? '#00695c' : '#ccc',
-                        bgcolor: isActive ? 'transparent' : 'transparent',
-                        flexShrink: 0,
-                        position: 'relative',
-                      }}
-                    >
-                      {isActive && (
-                        <Box
-                          sx={{
-                            position: 'absolute',
-                            inset: '2px',
-                            borderRadius: '50%',
-                            bgcolor: '#00695c',
-                            animation: 'pulse 1s ease-in-out infinite',
-                          }}
-                        />
-                      )}
-                    </Box>
-                  )}
-                  <Typography
-                    variant="body2"
-                    fontWeight={isDone || isActive ? 600 : 400}
-                    color={isDone ? 'success.main' : isActive ? 'text.primary' : 'text.disabled'}
-                  >
-                    {isDone ? `Step ${stageNum} ✓` : stage}
-                  </Typography>
-                </Box>
-              );
-            })}
-
-            <LinearProgress
-              sx={{
-                mt: 3,
-                borderRadius: 2,
-                height: 6,
-                '& .MuiLinearProgress-bar': {
-                  background: 'linear-gradient(90deg, #00695c, #00bfa5)',
-                  borderRadius: 2,
-                },
-              }}
-              variant="determinate"
-              value={((submitStage - 1) / SUBMIT_STAGES.length) * 100}
-            />
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block', textAlign: 'center' }}>
-              Step {submitStage} of {SUBMIT_STAGES.length}
-            </Typography>
-          </Box>
-        </Box>
-      )}
     </Box>
   );
 }

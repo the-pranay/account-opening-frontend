@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,8 +9,11 @@ import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
+import CircularProgress from '@mui/material/CircularProgress';
+import toast from 'react-hot-toast';
 import { useDispatch, useSelector } from 'react-redux';
 import { setProductSelection } from '@/store/accountSlice';
+import { selectProduct, getErrorMessage } from '@/services/accountApi';
 import type { RootState } from '@/store/store';
 import FormInput from '@/components/forms/FormInput';
 import SelectInput from '@/components/forms/SelectInput';
@@ -48,6 +51,8 @@ interface ProductSelectionProps {
 export default function ProductSelectionStep({ onNext, onBack }: ProductSelectionProps) {
   const dispatch = useDispatch();
   const savedData = useSelector((state: RootState) => state.accountOpening.productSelection);
+  const accountOpeningRequestId = useSelector((state: RootState) => state.accountOpening.accountOpeningRequestId);
+  const [isSaving, setIsSaving] = useState(false);
 
   const { control, handleSubmit, setValue } = useForm<FormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -79,9 +84,35 @@ export default function ProductSelectionStep({ onNext, onBack }: ProductSelectio
 
   const productCodeOptions = productGroup ? PRODUCT_CODES_BY_GROUP[productGroup] || [] : [];
 
-  const onSubmit = (data: FormData) => {
-    dispatch(setProductSelection(data));
-    onNext();
+  const onSubmit = async (data: FormData) => {
+    if (!accountOpeningRequestId) {
+      toast.error('Account Opening ID is missing. Please complete Step 1 first.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const response = await selectProduct({
+        accountOpeningRequestId,
+        offerCode: data.offerCode,
+        productCode: data.productCode,
+        offerName: data.offerName,
+        accountType: data.accountType,
+        productGroup: data.productGroup,
+        totalFees: 0,
+      });
+
+      if (response.success) {
+        dispatch(setProductSelection(data));
+        onNext();
+      } else {
+        throw new Error(response.message || 'Failed to save product selection');
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -128,6 +159,8 @@ export default function ProductSelectionStep({ onNext, onBack }: ProductSelectio
           variant="contained"
           onClick={handleSubmit(onSubmit)}
           size="large"
+          disabled={isSaving}
+          startIcon={isSaving ? <CircularProgress size={20} color="inherit" /> : null}
           sx={{ borderRadius: '8px', px: 4 }}
         >
           Save & Continue

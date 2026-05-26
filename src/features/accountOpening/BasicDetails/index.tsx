@@ -14,6 +14,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
 import Switch from '@mui/material/Switch';
 import IconButton from '@mui/material/IconButton';
+import CircularProgress from '@mui/material/CircularProgress';
 import { useDispatch, useSelector } from 'react-redux';
 import { setBasicDetails } from '@/store/accountSlice';
 import type { RootState } from '@/store/store';
@@ -26,6 +27,9 @@ import {
   CHEQUE_TYPES,
 } from '@/constants/formFields';
 import { Plus, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { useState } from 'react';
+import { saveBasicDetails as saveBasicDetailsApi, getErrorMessage } from '@/services/accountApi';
 
 const schema = z.object({
   addressType: z.string().min(1, 'Address Type is required'),
@@ -72,6 +76,8 @@ interface BasicDetailsProps {
 export default function BasicDetailsStep({ onNext, onBack }: BasicDetailsProps) {
   const dispatch = useDispatch();
   const savedData = useSelector((state: RootState) => state.accountOpening.basicDetails);
+  const accountOpeningRequestId = useSelector((state: RootState) => state.accountOpening.accountOpeningRequestId);
+  const [isSaving, setIsSaving] = useState(false);
 
   const { control, handleSubmit, watch, setValue } = useForm<FormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -105,29 +111,55 @@ export default function BasicDetailsStep({ onNext, onBack }: BasicDetailsProps) 
     setValue(name, checked, { shouldDirty: true, shouldValidate: true });
   };
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
+    if (!accountOpeningRequestId) {
+      toast.error('Account Opening ID is missing. Please complete Step 1 first.');
+      return;
+    }
+
     const statementFacility: string[] = [];
     if (data.statementEmail) statementFacility.push('email');
     if (data.statementAddress) statementFacility.push('registered_address');
     if (data.statementBranch) statementFacility.push('branch_pickup');
 
-    dispatch(
-      setBasicDetails({
-        addressType: data.addressType,
-        accommodationType: data.accommodationType,
+    setIsSaving(true);
+    try {
+      const response = await saveBasicDetailsApi({
+        accountOpeningRequestId,
         preferredContactNumber: data.preferredContactNumber,
         preferredEmail: data.preferredEmail,
-        chequeBookFacility: data.chequeBookFacility,
-        chequeBooks: data.chequeBooks,
-        internetBanking: {
-          view: data.internetBankingView,
-          perform: data.internetBankingPerform,
-          approve: data.internetBankingApprove,
-        },
-        accountStatementFacility: statementFacility,
-      })
-    );
-    onNext();
+        chequeBookRequested: data.chequeBookFacility,
+        netBankingRequested: data.internetBankingView || data.internetBankingPerform,
+        mobileBankingRequested: data.internetBankingPerform,
+        passbookRequested: true,
+      });
+
+      if (response.success) {
+        dispatch(
+          setBasicDetails({
+            addressType: data.addressType,
+            accommodationType: data.accommodationType,
+            preferredContactNumber: data.preferredContactNumber,
+            preferredEmail: data.preferredEmail,
+            chequeBookFacility: data.chequeBookFacility,
+            chequeBooks: data.chequeBooks,
+            internetBanking: {
+              view: data.internetBankingView,
+              perform: data.internetBankingPerform,
+              approve: data.internetBankingApprove,
+            },
+            accountStatementFacility: statementFacility,
+          })
+        );
+        onNext();
+      } else {
+        throw new Error(response.message || 'Failed to save basic details');
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -286,6 +318,8 @@ export default function BasicDetailsStep({ onNext, onBack }: BasicDetailsProps) 
           variant="contained"
           onClick={handleSubmit(onSubmit)}
           size="large"
+          disabled={isSaving}
+          startIcon={isSaving ? <CircularProgress size={20} color="inherit" /> : null}
           sx={{ borderRadius: '8px', px: 4 }}
         >
           Save & Continue

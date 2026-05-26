@@ -11,6 +11,7 @@ import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
+import CircularProgress from '@mui/material/CircularProgress';
 import { useDispatch, useSelector } from 'react-redux';
 import { setRelationship, addApplicant, removeApplicant } from '@/store/accountSlice';
 import type { RootState } from '@/store/store';
@@ -23,6 +24,7 @@ import type { Applicant } from '@/types/accountTypes';
 import { UserPlus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
+import { setRelationship as setRelationshipApi, getErrorMessage } from '@/services/accountApi';
 
 const columnHelper = createColumnHelper<Applicant>();
 
@@ -40,7 +42,9 @@ interface RelationshipProps {
 export default function RelationshipStep({ onNext, onBack }: RelationshipProps) {
   const dispatch = useDispatch();
   const savedData = useSelector((state: RootState) => state.accountOpening.relationship);
+  const accountOpeningRequestId = useSelector((state: RootState) => state.accountOpening.accountOpeningRequestId);
   const [modalOpen, setModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const { control, handleSubmit } = useForm<FormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -72,9 +76,36 @@ export default function RelationshipStep({ onNext, onBack }: RelationshipProps) 
     }),
   ];
 
-  const onSubmit = (data: FormData) => {
-    dispatch(setRelationship(data));
-    onNext();
+  const onSubmit = async (data: FormData) => {
+    if (!accountOpeningRequestId) {
+      toast.error('Account Opening ID is missing. Please complete Step 1 first.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const response = await setRelationshipApi({
+        accountOpeningRequestId,
+        modeOfOperation: data.modeOfOperation,
+        coApplicants: savedData.applicants.map((a) => ({
+          cbsCustomerId: a.customerId,
+          customerName: a.customerName,
+          customerRole: a.customerRole,
+          existingCustomer: a.isExistingCustomer,
+        })),
+      });
+
+      if (response.success) {
+        dispatch(setRelationship(data));
+        onNext();
+      } else {
+        throw new Error(response.message || 'Failed to save relationship details');
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -124,6 +155,8 @@ export default function RelationshipStep({ onNext, onBack }: RelationshipProps) 
           variant="contained"
           onClick={handleSubmit(onSubmit)}
           size="large"
+          disabled={isSaving}
+          startIcon={isSaving ? <CircularProgress size={20} color="inherit" /> : null}
           sx={{ borderRadius: '8px', px: 4 }}
         >
           Save & Continue

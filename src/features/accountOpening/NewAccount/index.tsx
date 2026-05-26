@@ -11,8 +11,9 @@ import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Chip from '@mui/material/Chip';
 import Alert from '@mui/material/Alert';
+import CircularProgress from '@mui/material/CircularProgress';
 import { useDispatch, useSelector } from 'react-redux';
-import { setNewAccount, importOfflineData } from '@/store/accountSlice';
+import { setNewAccount, importOfflineData, setAccountOpeningRequestId } from '@/store/accountSlice';
 import type { RootState } from '@/store/store';
 import FormInput from '@/components/forms/FormInput';
 import SelectInput from '@/components/forms/SelectInput';
@@ -20,6 +21,7 @@ import { CUSTOMER_TYPES, PRODUCT_CLASSES, CURRENCIES, BRANCHES, BANK_CODES } fro
 import { parseOfflineForm } from '@/utils/offlineFormParser';
 import { FileSpreadsheet, CheckCircle, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { initiateNewAccount, getErrorMessage } from '@/services/accountApi';
 
 const schema = z.object({
   customerType: z.string().min(1, 'Customer Type is required'),
@@ -61,7 +63,9 @@ interface NewAccountProps {
 export default function NewAccountStep({ onNext }: NewAccountProps) {
   const dispatch = useDispatch();
   const savedData = useSelector((state: RootState) => state.accountOpening.newAccount);
+  const accountOpeningRequestId = useSelector((state: RootState) => state.accountOpening.accountOpeningRequestId);
   const [importResult, setImportResult] = useState<{ matched: string[]; missing: string[] } | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const { control, handleSubmit, reset, setValue, getValues } = useForm<FormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -87,7 +91,7 @@ export default function NewAccountStep({ onNext }: NewAccountProps) {
     }
   }, [branchName, setValue]);
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     const normalizedData = {
       ...data,
       customerType: data.customerType.toUpperCase(),
@@ -95,8 +99,35 @@ export default function NewAccountStep({ onNext }: NewAccountProps) {
       branchCode: data.branchCode.toUpperCase(),
       currency: data.currency.toUpperCase(),
     };
-    dispatch(setNewAccount(normalizedData));
-    onNext();
+
+    // If already initiated in this session, just proceed (backend has no update for Step 1)
+    if (accountOpeningRequestId) {
+      dispatch(setNewAccount(normalizedData));
+      onNext();
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const response = await initiateNewAccount({
+        productClass: normalizedData.productClass as 'CASA' | 'LOAN' | 'TD' | 'RD',
+        customerType: normalizedData.customerType,
+        branchCode: normalizedData.branchCode,
+        currencyCode: normalizedData.currency,
+      });
+
+      if (response.success && response.data) {
+        dispatch(setAccountOpeningRequestId(response.data.id));
+        dispatch(setNewAccount(normalizedData));
+        onNext();
+      } else {
+        throw new Error(response.message || 'Failed to initiate account');
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleOfflineImport = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -205,6 +236,8 @@ export default function NewAccountStep({ onNext }: NewAccountProps) {
           variant="contained"
           onClick={handleSubmit(onSubmit)}
           size="large"
+          disabled={isSaving}
+          startIcon={isSaving ? <CircularProgress size={20} color="inherit" /> : null}
           sx={{ borderRadius: '8px', px: 4 }}
         >
           Save & Continue
