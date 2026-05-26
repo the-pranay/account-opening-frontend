@@ -22,7 +22,6 @@ import {
   setProductSelection,
 } from '@/store/accountSlice';
 import {
-  initiateNewAccount,
   selectProduct,
   setRelationship as setRelationshipApi,
   uploadDocument,
@@ -63,7 +62,6 @@ const PRODUCT_CLASS_BY_ACCOUNT_TYPE: Record<string, 'CASA' | 'TD' | 'RD'> = {
 
 // Individual submit progress steps shown in the overlay
 const SUBMIT_STAGES = [
-  'Initiating account...',
   'Saving product selection...',
   'Saving relationship details...',
   'Uploading documents...',
@@ -84,7 +82,7 @@ function AccountOpeningContent() {
   const isLoading = useSelector((state: RootState) => state.accountOpening.isLoading);
 
   // Read all step data from Redux
-  const newAccount = useSelector((state: RootState) => state.accountOpening.newAccount);
+  const accountOpeningRequestId = useSelector((state: RootState) => state.accountOpening.accountOpeningRequestId);
   const productSelection = useSelector((state: RootState) => state.accountOpening.productSelection);
   const relationship = useSelector((state: RootState) => state.accountOpening.relationship);
   const documents = useSelector((state: RootState) => state.accountOpening.documents);
@@ -110,35 +108,24 @@ function AccountOpeningContent() {
   };
 
   /**
-   * SINGLE BATCH SUBMIT — fires all API calls sequentially after user confirms on Step 7.
-   * 1. Initiate account          → get accountOpeningRequestId
-   * 2. Select product
-   * 3. Set relationship
-   * 4. Upload each document (file upload + step attachment)
-   * 5. Save basic details
-   * 6. Add nominees
-   * 7. Final submit
+   * FINAL SUBMIT — fires remaining API calls sequentially after user confirms on Step 7.
+   * 1. Select product
+   * 2. Set relationship
+   * 3. Upload each document (file upload + step attachment)
+   * 4. Save basic details
+   * 5. Add nominees
+   * 6. Final submit
    */
   const handleSubmit = async () => {
     dispatch(setLoading(true));
-    setSubmitStage(1);
 
     try {
-      // ── Step 1: Initiate account ──────────────────────────────
-      const step1Response = await initiateNewAccount({
-        productClass: newAccount.productClass as 'CASA' | 'LOAN' | 'TD' | 'RD',
-        customerType: newAccount.customerType,
-        branchCode: newAccount.branchCode,
-        currencyCode: newAccount.currency,
-      });
-
-      if (!step1Response.success || !step1Response.data) {
-        throw new Error(step1Response.message || 'Failed to initiate account');
+      if (!accountOpeningRequestId) {
+        throw new Error('Account opening request ID is missing. Please restart the process.');
       }
-      const accountOpeningRequestId = step1Response.data.id;
 
-      // ── Step 2: Select product ────────────────────────────────
-      setSubmitStage(2);
+      // ── Step 1: Select product ────────────────────────────────
+      setSubmitStage(1);
       const step2Response = await selectProduct({
         accountOpeningRequestId,
         offerCode: productSelection.offerCode,
@@ -153,8 +140,8 @@ function AccountOpeningContent() {
         throw new Error(step2Response.message || 'Failed to save product selection');
       }
 
-      // ── Step 3: Set relationship ──────────────────────────────
-      setSubmitStage(3);
+      // ── Step 2: Set relationship ──────────────────────────────
+      setSubmitStage(2);
       const step3Response = await setRelationshipApi({
         accountOpeningRequestId,
         modeOfOperation: relationship.modeOfOperation,
@@ -170,8 +157,8 @@ function AccountOpeningContent() {
         throw new Error(step3Response.message || 'Failed to save relationship details');
       }
 
-      // ── Step 4: Upload documents ──────────────────────────────
-      setSubmitStage(4);
+      // ── Step 3: Upload documents ──────────────────────────────
+      setSubmitStage(3);
       for (const doc of documents) {
         if (!doc.file) continue;
 
@@ -210,8 +197,8 @@ function AccountOpeningContent() {
         }
       }
 
-      // ── Step 5: Save basic details ────────────────────────────
-      setSubmitStage(5);
+      // ── Step 4: Save basic details ────────────────────────────
+      setSubmitStage(4);
       const step5Response = await saveBasicDetailsApi({
         accountOpeningRequestId,
         preferredContactNumber: basicDetails.preferredContactNumber,
@@ -226,8 +213,8 @@ function AccountOpeningContent() {
         throw new Error(step5Response.message || 'Failed to save basic details');
       }
 
-      // ── Step 6: Add nominees ──────────────────────────────────
-      setSubmitStage(6);
+      // ── Step 5: Add nominees ──────────────────────────────────
+      setSubmitStage(5);
       const step6Response = await addNominees({
         accountOpeningRequestId,
         nominees: nominees.map((n) => ({
@@ -249,8 +236,8 @@ function AccountOpeningContent() {
         throw new Error(step6Response.message || 'Failed to save nominees');
       }
 
-      // ── Step 7: Final submit ──────────────────────────────────
-      setSubmitStage(7);
+      // ── Step 6: Final submit ──────────────────────────────────
+      setSubmitStage(6);
       const finalResponse = await submitApplication(accountOpeningRequestId);
       if (!finalResponse.success) {
         throw new Error(finalResponse.message || 'Final submission failed');
