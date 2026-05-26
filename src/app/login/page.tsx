@@ -12,6 +12,7 @@ import IconButton from '@mui/material/IconButton';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { loginUser, saveAuthData, getErrorMessage } from '@/services/accountApi';
@@ -118,10 +119,13 @@ export default function LoginPage() {
 
         <Box sx={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: 380 }}>
           <Box sx={{ height: 50, overflow: 'hidden', mb: 4 }}>
-            <img
+            <Image
               src="/idigibank-logo.png"
               alt="idigiBank"
-              style={{ height: 100, marginTop: -25, objectFit: 'contain' }}
+              width={300}
+              height={100}
+              style={{ marginTop: -25, objectFit: 'contain' }}
+              priority
             />
           </Box>
           <Typography
@@ -186,7 +190,7 @@ export default function LoginPage() {
               mb: 4,
             }}
           >
-            <img src="/idigibank-logo.png" alt="idigiBank" style={{ height: 40, objectFit: 'contain' }} />
+            <Image src="/idigibank-logo.png" alt="idigiBank" width={160} height={40} style={{ objectFit: 'contain' }} priority />
           </Box>
 
           <Typography variant="h4" fontWeight={800} sx={{ mb: 0.5, letterSpacing: '-0.02em' }}>

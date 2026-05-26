@@ -11,6 +11,7 @@ import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
   Shield,
@@ -172,10 +173,13 @@ export default function HomePage() {
           <Toolbar sx={{ justifyContent: 'space-between', px: { xs: 0 } }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Box sx={{ height: 38, overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
-                <img
+                <Image
                   src="/idigibank-logo.png"
                   alt="idigiBank"
-                  style={{ height: 80, marginTop: -21, marginBottom: -21, objectFit: 'contain' }}
+                  width={240}
+                  height={80}
+                  style={{ marginTop: -21, marginBottom: -21, objectFit: 'contain' }}
+                  priority
                 />
               </Box>
             </Box>

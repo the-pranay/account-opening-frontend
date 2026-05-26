@@ -10,6 +10,7 @@ import Avatar from '@mui/material/Avatar';
 import Divider from '@mui/material/Divider';
 import Button from '@mui/material/Button';
 import LinearProgress from '@mui/material/LinearProgress';
+import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '@/store/store';
@@ -311,10 +312,13 @@ function AccountOpeningContent() {
         <Toolbar sx={{ justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Box sx={{ height: 38, overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
-              <img
+              <Image
                 src="/idigibank-logo.png"
                 alt="idigiBank"
-                style={{ height: 80, marginTop: -21, marginBottom: -21, objectFit: 'contain' }}
+                width={240}
+                height={80}
+                style={{ marginTop: -21, marginBottom: -21, objectFit: 'contain' }}
+                priority
               />
             </Box>
             <Typography component="span" sx={{ fontSize: '0.75rem', opacity: 0.6, fontWeight: 400, color: '#fff' }}>
