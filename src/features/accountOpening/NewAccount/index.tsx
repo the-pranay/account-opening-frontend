@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import React, { useCallback, useState, useEffect } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Box from '@mui/material/Box';
@@ -11,15 +11,13 @@ import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Chip from '@mui/material/Chip';
 import Alert from '@mui/material/Alert';
-import CircularProgress from '@mui/material/CircularProgress';
 import { useDispatch, useSelector } from 'react-redux';
-import { setNewAccount, importOfflineData, setAccountOpeningRequestId, setAccountStatus } from '@/store/accountSlice';
+import { setNewAccount, importOfflineData } from '@/store/accountSlice';
 import type { RootState } from '@/store/store';
 import FormInput from '@/components/forms/FormInput';
 import SelectInput from '@/components/forms/SelectInput';
-import { CUSTOMER_TYPES, PRODUCT_CLASSES, CURRENCIES } from '@/constants/formFields';
+import { CUSTOMER_TYPES, PRODUCT_CLASSES, CURRENCIES, BRANCHES, BANK_CODES } from '@/constants/formFields';
 import { parseOfflineForm } from '@/utils/offlineFormParser';
-import { initiateNewAccount, getErrorMessage } from '@/services/accountApi';
 import { FileSpreadsheet, CheckCircle, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -64,37 +62,41 @@ export default function NewAccountStep({ onNext }: NewAccountProps) {
   const dispatch = useDispatch();
   const savedData = useSelector((state: RootState) => state.accountOpening.newAccount);
   const [importResult, setImportResult] = useState<{ matched: string[]; missing: string[] } | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset, setValue, getValues } = useForm<FormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(schema) as any,
     defaultValues: savedData,
   });
 
-  const onSubmit = async (data: FormData) => {
-    dispatch(setNewAccount(data));
-    setSubmitting(true);
-    try {
-      const response = await initiateNewAccount({
-        productClass: data.productClass as 'CASA' | 'LOAN' | 'TD' | 'RD',
-        customerType: data.customerType,
-        branchCode: data.branchCode,
-        currencyCode: data.currency,
-      });
-      if (response.success && response.data) {
-        dispatch(setAccountOpeningRequestId(response.data.id));
-        dispatch(setAccountStatus(response.data.status));
-        toast.success('Account initiated successfully');
-        onNext();
-      } else {
-        toast.error(response.message || 'Failed to initiate account');
-      }
-    } catch (err) {
-      toast.error(getErrorMessage(err));
-    } finally {
-      setSubmitting(false);
+  const branchName = useWatch({ control, name: 'branchName' });
+
+  useEffect(() => {
+    if (!getValues('customerId')) {
+      const generatedId = `CUST-${Math.floor(100000 + Math.random() * 900000)}`;
+      setValue('customerId', generatedId, { shouldValidate: true });
     }
+  }, [getValues, setValue]);
+
+  useEffect(() => {
+    if (branchName) {
+      const branch = BRANCHES.find((b) => b.value === branchName);
+      if (branch) {
+        setValue('branchCode', branch.code, { shouldValidate: true });
+      }
+    }
+  }, [branchName, setValue]);
+
+  const onSubmit = (data: FormData) => {
+    const normalizedData = {
+      ...data,
+      customerType: data.customerType.toUpperCase(),
+      productClass: data.productClass.toUpperCase(),
+      branchCode: data.branchCode.toUpperCase(),
+      currency: data.currency.toUpperCase(),
+    };
+    dispatch(setNewAccount(normalizedData));
+    onNext();
   };
 
   const handleOfflineImport = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -109,7 +111,6 @@ export default function NewAccountStep({ onNext }: NewAccountProps) {
       }
       if (result.data.length > 0) {
         dispatch(importOfflineData(result.data[0]));
-        // Reset form with imported data
         reset({
           ...savedData,
           customerName: result.data[0].customerName || savedData.customerName,
@@ -180,22 +181,22 @@ export default function NewAccountStep({ onNext }: NewAccountProps) {
           <SelectInput name="productClass" control={control} label="Product Class" options={PRODUCT_CLASSES} required />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <FormInput name="customerId" control={control} label="Customer ID" required />
+          <FormInput name="customerId" control={control} label="Customer ID" required disabled />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
           <FormInput name="customerName" control={control} label="Customer Name" required />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <FormInput name="branchCode" control={control} label="Branch Code" required />
+          <SelectInput name="branchName" control={control} label="Branch Name" options={BRANCHES} required />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <FormInput name="branchName" control={control} label="Branch Name" required />
+          <FormInput name="branchCode" control={control} label="Branch Code" required disabled />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
           <SelectInput name="currency" control={control} label="Currency" options={CURRENCIES} required />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <FormInput name="bankCode" control={control} label="Bank Code" required />
+          <SelectInput name="bankCode" control={control} label="Bank Code" options={BANK_CODES} required />
         </Grid>
       </Grid>
 
@@ -204,11 +205,9 @@ export default function NewAccountStep({ onNext }: NewAccountProps) {
           variant="contained"
           onClick={handleSubmit(onSubmit)}
           size="large"
-          disabled={submitting}
-          endIcon={submitting ? <CircularProgress size={18} color="inherit" /> : undefined}
           sx={{ borderRadius: '8px', px: 4 }}
         >
-          {submitting ? 'Initiating…' : 'Save & Continue'}
+          Save & Continue
         </Button>
       </Box>
     </Paper>

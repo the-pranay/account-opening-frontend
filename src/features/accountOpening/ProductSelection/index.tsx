@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import React, { useEffect, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Box from '@mui/material/Box';
@@ -9,16 +9,13 @@ import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
-import CircularProgress from '@mui/material/CircularProgress';
 import { useDispatch, useSelector } from 'react-redux';
-import { setProductSelection, setAccountStatus } from '@/store/accountSlice';
+import { setProductSelection } from '@/store/accountSlice';
 import type { RootState } from '@/store/store';
 import FormInput from '@/components/forms/FormInput';
 import SelectInput from '@/components/forms/SelectInput';
 import DatePickerField from '@/components/forms/DatePicker';
-import { ACCOUNT_TYPES, PRODUCT_GROUPS, PRODUCT_CLASSES, CURRENCIES } from '@/constants/formFields';
-import { selectProduct, getErrorMessage } from '@/services/accountApi';
-import toast from 'react-hot-toast';
+import { ACCOUNT_TYPES, PRODUCT_GROUPS, PRODUCT_CLASSES, CURRENCIES, OFFERS, PRODUCT_CODES_BY_GROUP } from '@/constants/formFields';
 
 const schema = z.object({
   offerCode: z.string()
@@ -51,10 +48,8 @@ interface ProductSelectionProps {
 export default function ProductSelectionStep({ onNext, onBack }: ProductSelectionProps) {
   const dispatch = useDispatch();
   const savedData = useSelector((state: RootState) => state.accountOpening.productSelection);
-  const accountOpeningRequestId = useSelector((state: RootState) => state.accountOpening.accountOpeningRequestId);
-  const [submitting, setSubmitting] = useState(false);
 
-  const { control, handleSubmit } = useForm<FormData>({
+  const { control, handleSubmit, setValue } = useForm<FormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(schema) as any,
     defaultValues: {
@@ -70,37 +65,23 @@ export default function ProductSelectionStep({ onNext, onBack }: ProductSelectio
     },
   });
 
-  const onSubmit = async (data: FormData) => {
-    dispatch(setProductSelection(data));
+  const offerName = useWatch({ control, name: 'offerName' });
+  const productGroup = useWatch({ control, name: 'productGroup' });
 
-    if (!accountOpeningRequestId) {
-      toast.error('No account opening request found. Please complete Step 1 first.');
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const response = await selectProduct({
-        accountOpeningRequestId,
-        offerCode: data.offerCode,
-        productCode: data.productCode,
-        offerName: data.offerName,
-        accountType: data.accountType,
-        productGroup: data.productGroup,
-        totalFees: 0,
-      });
-      if (response.success) {
-        dispatch(setAccountStatus(response.data.status));
-        toast.success('Product selection saved');
-        onNext();
-      } else {
-        toast.error(response.message || 'Failed to select product');
+  useEffect(() => {
+    if (offerName) {
+      const offer = OFFERS.find((o) => o.value === offerName);
+      if (offer) {
+        setValue('offerCode', offer.code, { shouldValidate: true });
       }
-    } catch (err) {
-      toast.error(getErrorMessage(err));
-    } finally {
-      setSubmitting(false);
     }
+  }, [offerName, setValue]);
+
+  const productCodeOptions = productGroup ? PRODUCT_CODES_BY_GROUP[productGroup] || [] : [];
+
+  const onSubmit = (data: FormData) => {
+    dispatch(setProductSelection(data));
+    onNext();
   };
 
   return (
@@ -111,10 +92,10 @@ export default function ProductSelectionStep({ onNext, onBack }: ProductSelectio
 
       <Grid container spacing={2.5}>
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <FormInput name="offerCode" control={control} label="Offer Code" required />
+          <FormInput name="offerCode" control={control} label="Offer Code" required disabled />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <FormInput name="offerName" control={control} label="Offer Name" required />
+          <SelectInput name="offerName" control={control} label="Offer Name" options={OFFERS} required />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
           <SelectInput name="accountType" control={control} label="Account Type" options={ACCOUNT_TYPES} required />
@@ -126,7 +107,7 @@ export default function ProductSelectionStep({ onNext, onBack }: ProductSelectio
           <SelectInput name="productClass" control={control} label="Product Class" options={PRODUCT_CLASSES} required />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <FormInput name="productCode" control={control} label="Product Code" required />
+          <SelectInput name="productCode" control={control} label="Product Code" options={productCodeOptions} required disabled={!productGroup} />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
           <SelectInput name="currency" control={control} label="Currency" options={CURRENCIES} required />
@@ -147,11 +128,9 @@ export default function ProductSelectionStep({ onNext, onBack }: ProductSelectio
           variant="contained"
           onClick={handleSubmit(onSubmit)}
           size="large"
-          disabled={submitting}
-          endIcon={submitting ? <CircularProgress size={18} color="inherit" /> : undefined}
           sx={{ borderRadius: '8px', px: 4 }}
         >
-          {submitting ? 'Saving…' : 'Save & Continue'}
+          Save & Continue
         </Button>
       </Box>
     </Paper>

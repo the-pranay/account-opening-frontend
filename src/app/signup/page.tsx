@@ -26,6 +26,7 @@ import {
   Phone,
   Shield,
   Building2,
+  Landmark,
 } from 'lucide-react';
 
 interface SignupForm {
@@ -33,6 +34,7 @@ interface SignupForm {
   lastName: string;
   email: string;
   mobileNumber: string;
+  branchCode: string;
   password: string;
   confirmPassword: string;
   terms: boolean;
@@ -56,6 +58,7 @@ export default function SignupPage() {
       lastName: '',
       email: '',
       mobileNumber: '',
+      branchCode: '',
       password: '',
       confirmPassword: '',
       terms: false,
@@ -74,6 +77,7 @@ export default function SignupPage() {
         email: data.email,
         password: data.password,
         mobileNumber: data.mobileNumber,
+        branchCode: data.branchCode || undefined,
       });
       if (response.success) {
         toast.success('Account created successfully! Please sign in.');
@@ -304,6 +308,28 @@ export default function SignupPage() {
                 startAdornment: (
                   <InputAdornment position="start">
                     <Phone size={18} color="#546e7a" />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ mb: 2.5, '& .MuiOutlinedInput-root': { borderRadius: '10px', backgroundColor: '#fff' } }}
+            />
+
+            {/* Branch Code */}
+            <Typography variant="body2" fontWeight={600} sx={{ mb: 0.8 }}>
+              Branch Code <Typography component="span" variant="body2" color="text.secondary">(Optional)</Typography>
+            </Typography>
+            <TextField
+              fullWidth
+              placeholder="e.g. BLR001"
+              error={!!errors.branchCode}
+              helperText={errors.branchCode?.message}
+              {...register('branchCode', {
+                maxLength: { value: 20, message: 'Max 20 characters' },
+              })}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Landmark size={18} color="#546e7a" />
                   </InputAdornment>
                 ),
               }}

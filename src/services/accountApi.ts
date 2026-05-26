@@ -303,12 +303,27 @@ export const getKycStatus = async (
 export const getErrorMessage = (error: unknown): string => {
   if (axios.isAxiosError(error)) {
     // Backend returns ApiResponse with message
-    const apiMessage = error.response?.data?.message;
-    if (apiMessage) return apiMessage;
+    const responseData = error.response?.data;
+    const apiMessage = responseData?.message;
+    const fieldErrors = responseData?.data;
+    if (fieldErrors && typeof fieldErrors === 'object' && !Array.isArray(fieldErrors)) {
+      const details = Object.entries(fieldErrors)
+        .map(([field, message]) => `${field}: ${String(message)}`)
+        .join(', ');
+      if (details) return apiMessage ? `${apiMessage} ${details}` : details;
+    }
+    if (
+      apiMessage &&
+      !(error.response?.status === 500 && apiMessage.toLowerCase().includes('unexpected error'))
+    ) {
+      return apiMessage;
+    }
     if (error.response?.status === 401) return 'Session expired. Please login again.';
     if (error.response?.status === 403) return 'You do not have permission to perform this action.';
     if (error.response?.status === 404) return 'Resource not found.';
-    if (error.response?.status === 500) return 'Internal server error. Please try again later.';
+    if (error.response?.status === 500) {
+      return `Backend returned 500 for ${error.config?.url || 'this request'}. Check the selected branch/customer values or backend logs.`;
+    }
     if (error.code === 'ECONNABORTED') return 'Request timed out. The server may be starting up — please try again.';
     if (!error.response) return 'Network error. Please check your connection.';
     return error.message;

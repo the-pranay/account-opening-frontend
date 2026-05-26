@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -14,9 +14,8 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
 import Switch from '@mui/material/Switch';
 import IconButton from '@mui/material/IconButton';
-import CircularProgress from '@mui/material/CircularProgress';
 import { useDispatch, useSelector } from 'react-redux';
-import { setBasicDetails, setAccountStatus } from '@/store/accountSlice';
+import { setBasicDetails } from '@/store/accountSlice';
 import type { RootState } from '@/store/store';
 import FormInput from '@/components/forms/FormInput';
 import SelectInput from '@/components/forms/SelectInput';
@@ -26,9 +25,7 @@ import {
   INSTRUMENT_TYPES,
   CHEQUE_TYPES,
 } from '@/constants/formFields';
-import { saveBasicDetails as saveBasicDetailsApi, getErrorMessage } from '@/services/accountApi';
 import { Plus, Trash2 } from 'lucide-react';
-import toast from 'react-hot-toast';
 
 const schema = z.object({
   addressType: z.string().min(1, 'Address Type is required'),
@@ -75,8 +72,6 @@ interface BasicDetailsProps {
 export default function BasicDetailsStep({ onNext, onBack }: BasicDetailsProps) {
   const dispatch = useDispatch();
   const savedData = useSelector((state: RootState) => state.accountOpening.basicDetails);
-  const accountOpeningRequestId = useSelector((state: RootState) => state.accountOpening.accountOpeningRequestId);
-  const [submitting, setSubmitting] = useState(false);
 
   const { control, handleSubmit, watch, setValue } = useForm<FormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -110,7 +105,7 @@ export default function BasicDetailsStep({ onNext, onBack }: BasicDetailsProps) 
     setValue(name, checked, { shouldDirty: true, shouldValidate: true });
   };
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = (data: FormData) => {
     const statementFacility: string[] = [];
     if (data.statementEmail) statementFacility.push('email');
     if (data.statementAddress) statementFacility.push('registered_address');
@@ -132,35 +127,7 @@ export default function BasicDetailsStep({ onNext, onBack }: BasicDetailsProps) 
         accountStatementFacility: statementFacility,
       })
     );
-
-    if (!accountOpeningRequestId) {
-      toast.error('No account opening request found. Please complete Step 1 first.');
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const response = await saveBasicDetailsApi({
-        accountOpeningRequestId,
-        preferredContactNumber: data.preferredContactNumber,
-        preferredEmail: data.preferredEmail,
-        chequeBookRequested: data.chequeBookFacility,
-        netBankingRequested: data.internetBankingView || data.internetBankingPerform,
-        mobileBankingRequested: data.internetBankingPerform,
-        passbookRequested: true,
-      });
-      if (response.success) {
-        dispatch(setAccountStatus(response.data.status));
-        toast.success('Basic details saved');
-        onNext();
-      } else {
-        toast.error(response.message || 'Failed to save basic details');
-      }
-    } catch (err) {
-      toast.error(getErrorMessage(err));
-    } finally {
-      setSubmitting(false);
-    }
+    onNext();
   };
 
   return (
@@ -319,11 +286,9 @@ export default function BasicDetailsStep({ onNext, onBack }: BasicDetailsProps) 
           variant="contained"
           onClick={handleSubmit(onSubmit)}
           size="large"
-          disabled={submitting}
-          endIcon={submitting ? <CircularProgress size={18} color="inherit" /> : undefined}
           sx={{ borderRadius: '8px', px: 4 }}
         >
-          {submitting ? 'Saving…' : 'Save & Continue'}
+          Save & Continue
         </Button>
       </Box>
     </Paper>

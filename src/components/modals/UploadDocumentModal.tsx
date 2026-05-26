@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -32,9 +32,10 @@ interface UploadDocumentModalProps {
   open: boolean;
   onClose: () => void;
   onSave: (doc: AccountDocument) => void | boolean | Promise<void | boolean>;
+  customerId?: string;
 }
 
-export default function UploadDocumentModal({ open, onClose, onSave }: UploadDocumentModalProps) {
+export default function UploadDocumentModal({ open, onClose, onSave, customerId }: UploadDocumentModalProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
 
@@ -42,11 +43,22 @@ export default function UploadDocumentModal({ open, onClose, onSave }: UploadDoc
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(schema) as any,
     defaultValues: {
-      customerId: '',
+      customerId: customerId || '',
       documentType: '',
       documentCategory: '',
     },
   });
+
+  useEffect(() => {
+    if (open) {
+      reset({
+        customerId: customerId || '',
+        documentType: '',
+        documentCategory: '',
+      });
+      setFiles([]);
+    }
+  }, [open, customerId, reset]);
 
   const handleFilesAccepted = (accepted: File[]) => {
     setFiles(accepted);
@@ -85,7 +97,7 @@ export default function UploadDocumentModal({ open, onClose, onSave }: UploadDoc
       <DialogContent sx={{ pt: 3 }}>
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
           <Grid size={12}>
-            <FormInput name="customerId" control={control} label="Customer ID" required />
+            <FormInput name="customerId" control={control} label="Customer ID" required disabled />
           </Grid>
           <Grid size={{ xs: 12, sm: 6 }}>
             <SelectInput name="documentType" control={control} label="Document Type" options={DOCUMENT_TYPES} required />

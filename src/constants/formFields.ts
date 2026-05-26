@@ -3,11 +3,11 @@
 // ═══════════════════════════════════════════════════════════════
 
 export const CUSTOMER_TYPES = [
-  { value: 'individual', label: 'Individual' },
-  { value: 'corporate', label: 'Corporate' },
-  { value: 'joint', label: 'Joint' },
-  { value: 'trust', label: 'Trust' },
-  { value: 'minor', label: 'Minor' },
+  { value: 'INDIVIDUAL', label: 'Individual' },
+  { value: 'CORPORATE', label: 'Corporate' },
+  { value: 'JOINT', label: 'Joint' },
+  { value: 'TRUST', label: 'Trust' },
+  { value: 'MINOR', label: 'Minor' },
 ];
 
 export const PRODUCT_CLASSES = [
@@ -228,3 +228,88 @@ export const ALLOWED_FILE_TYPES = {
 };
 
 export const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+
+export const BANK_CODES = [
+  { value: 'IDIGI', label: 'idigiBank' },
+];
+
+export const BRANCHES = [
+  { value: 'Mumbai', label: 'Mumbai', code: 'MUM001' },
+  { value: 'Delhi', label: 'Delhi', code: 'DEL002' },
+  { value: 'Bengaluru', label: 'Bengaluru', code: 'BEN003' },
+  { value: 'Hyderabad', label: 'Hyderabad', code: 'HYD004' },
+  { value: 'Ahmedabad', label: 'Ahmedabad', code: 'AHM005' },
+  { value: 'Chennai', label: 'Chennai', code: 'CHE006' },
+  { value: 'Kolkata', label: 'Kolkata', code: 'KOL007' },
+  { value: 'Surat', label: 'Surat', code: 'SUR008' },
+  { value: 'Pune', label: 'Pune', code: 'PUN009' },
+  { value: 'Jaipur', label: 'Jaipur', code: 'JAI010' },
+  { value: 'Lucknow', label: 'Lucknow', code: 'LUC011' },
+  { value: 'Kanpur', label: 'Kanpur', code: 'KAN012' },
+  { value: 'Nagpur', label: 'Nagpur', code: 'NAG013' },
+  { value: 'Indore', label: 'Indore', code: 'IND014' },
+  { value: 'Thane', label: 'Thane', code: 'THA015' },
+  { value: 'Bhopal', label: 'Bhopal', code: 'BHO016' },
+  { value: 'Visakhapatnam', label: 'Visakhapatnam', code: 'VIS017' },
+  { value: 'Pimpri-Chinchwad', label: 'Pimpri-Chinchwad', code: 'PIM018' },
+  { value: 'Patna', label: 'Patna', code: 'PAT019' },
+  { value: 'Vadodara', label: 'Vadodara', code: 'VAD020' },
+  { value: 'Ghaziabad', label: 'Ghaziabad', code: 'GHA021' },
+  { value: 'Ludhiana', label: 'Ludhiana', code: 'LUD022' },
+  { value: 'Agra', label: 'Agra', code: 'AGR023' },
+  { value: 'Nashik', label: 'Nashik', code: 'NAS024' },
+  { value: 'Faridabad', label: 'Faridabad', code: 'FAR025' },
+  { value: 'Meerut', label: 'Meerut', code: 'MEE026' },
+  { value: 'Rajkot', label: 'Rajkot', code: 'RAJ027' },
+  { value: 'Kalyan-Dombivli', label: 'Kalyan-Dombivli', code: 'KAL028' },
+  { value: 'Vasai-Virar', label: 'Vasai-Virar', code: 'VAS029' },
+  { value: 'Varanasi', label: 'Varanasi', code: 'VAR030' },
+  { value: 'Srinagar', label: 'Srinagar', code: 'SRI031' },
+  { value: 'Aurangabad', label: 'Aurangabad', code: 'AUR032' },
+  { value: 'Dhanbad', label: 'Dhanbad', code: 'DHA033' },
+  { value: 'Amritsar', label: 'Amritsar', code: 'AMR034' },
+  { value: 'Navi Mumbai', label: 'Navi Mumbai', code: 'NAV035' },
+  { value: 'Allahabad', label: 'Allahabad', code: 'ALL036' },
+  { value: 'Howrah', label: 'Howrah', code: 'HOW037' },
+  { value: 'Ranchi', label: 'Ranchi', code: 'RAN038' },
+  { value: 'Gwalior', label: 'Gwalior', code: 'GWA039' },
+  { value: 'Jabalpur', label: 'Jabalpur', code: 'JAB040' },
+  { value: 'Coimbatore', label: 'Coimbatore', code: 'COI041' },
+  { value: 'Vijayawada', label: 'Vijayawada', code: 'VIJ042' },
+  { value: 'Jodhpur', label: 'Jodhpur', code: 'JOD043' },
+  { value: 'Madurai', label: 'Madurai', code: 'MAD044' },
+  { value: 'Raipur', label: 'Raipur', code: 'RAI045' },
+  { value: 'Kota', label: 'Kota', code: 'KOT046' },
+  { value: 'Guwahati', label: 'Guwahati', code: 'GUW047' },
+  { value: 'Chandigarh', label: 'Chandigarh', code: 'CHA048' },
+  { value: 'Solapur', label: 'Solapur', code: 'SOL049' },
+  { value: 'Hubli-Dharwad', label: 'Hubli-Dharwad', code: 'HUB050' },
+];
+
+export const OFFERS = [
+  { value: 'Welcome Bonus Offer', label: 'Welcome Bonus Offer', code: 'OFF-WBO-01' },
+  { value: 'Zero Balance Corporate', label: 'Zero Balance Corporate', code: 'OFF-ZBC-02' },
+  { value: 'Premium Wealth Plan', label: 'Premium Wealth Plan', code: 'OFF-PWP-03' },
+  { value: 'Student Lite Account', label: 'Student Lite Account', code: 'OFF-SLA-04' },
+  { value: 'Senior Citizen Advantage', label: 'Senior Citizen Advantage', code: 'OFF-SCA-05' },
+];
+
+export const PRODUCT_CODES_BY_GROUP: Record<string, { value: string; label: string; }[]> = {
+  retail: [
+    { value: 'RET-SAV-001', label: 'Retail Savings Standard' },
+    { value: 'RET-CUR-002', label: 'Retail Current Plus' },
+    { value: 'RET-SAL-003', label: 'Retail Salary Account' },
+  ],
+  corporate: [
+    { value: 'CORP-CUR-101', label: 'Corporate Current Prime' },
+    { value: 'CORP-EEFC-102', label: 'Corporate EEFC Account' },
+  ],
+  sme: [
+    { value: 'SME-CUR-201', label: 'SME Business Basic' },
+    { value: 'SME-CUR-202', label: 'SME Business Pro' },
+  ],
+  wealth: [
+    { value: 'WLTH-SAV-301', label: 'Wealth Savings Elite' },
+    { value: 'WLTH-INV-302', label: 'Wealth Investment Account' },
+  ],
+};

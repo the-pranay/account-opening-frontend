@@ -6,13 +6,11 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import IconButton from '@mui/material/IconButton';
-import CircularProgress from '@mui/material/CircularProgress';
 import { useDispatch, useSelector } from 'react-redux';
 import { addNominee, removeNominee } from '@/store/accountSlice';
 import type { RootState } from '@/store/store';
 import DataTable from '@/components/tables/DataTable';
 import AddNomineeModal from '@/components/modals/AddNomineeModal';
-import { addNominees, getErrorMessage } from '@/services/accountApi';
 import { createColumnHelper } from '@tanstack/react-table';
 import type { Nominee } from '@/types/accountTypes';
 import { UserPlus, Trash2 } from 'lucide-react';
@@ -28,9 +26,7 @@ interface NomineeProps {
 export default function NomineeStep({ onBack, onComplete }: NomineeProps) {
   const dispatch = useDispatch();
   const nominees = useSelector((state: RootState) => state.accountOpening.nominees);
-  const accountOpeningRequestId = useSelector((state: RootState) => state.accountOpening.accountOpeningRequestId);
   const [modalOpen, setModalOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
 
   const columns = [
     columnHelper.accessor('firstName', {
@@ -65,46 +61,12 @@ export default function NomineeStep({ onBack, onComplete }: NomineeProps) {
     }),
   ];
 
-  const handleComplete = async () => {
+  const handleComplete = () => {
     if (nominees.length === 0) {
-      toast.error('Please add at least one nominee');
+      toast.error('Please add at least one nominee before submitting');
       return;
     }
-
-    if (!accountOpeningRequestId) {
-      toast.error('No account opening request found. Please complete Step 1 first.');
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const response = await addNominees({
-        accountOpeningRequestId,
-        nominees: nominees.map((n) => ({
-          firstName: n.firstName,
-          middleName: n.middleName || undefined,
-          lastName: n.lastName || undefined,
-          gender: n.gender,
-          dateOfBirth: n.dateOfBirth,
-          relationship: n.relationship,
-          sharePercentage: n.shareHoldingPercentage,
-          addressLine1: n.address?.addressLine1,
-          addressLine2: n.address?.addressLine2,
-          country: n.address?.country,
-          postalCode: n.address?.postalCode,
-        })),
-      });
-      if (response.success) {
-        toast.success('Nominees saved successfully');
-        onComplete();
-      } else {
-        toast.error(response.message || 'Failed to save nominees');
-      }
-    } catch (err) {
-      toast.error(getErrorMessage(err));
-    } finally {
-      setSubmitting(false);
-    }
+    onComplete(); // Opens the confirm dialog — backend calls happen in orchestrator
   };
 
   return (
@@ -143,11 +105,9 @@ export default function NomineeStep({ onBack, onComplete }: NomineeProps) {
           color="success"
           onClick={handleComplete}
           size="large"
-          disabled={submitting}
-          endIcon={submitting ? <CircularProgress size={18} color="inherit" /> : undefined}
           sx={{ borderRadius: '8px', px: 4 }}
         >
-          {submitting ? 'Saving Nominees…' : 'Submit Account'}
+          Submit Account
         </Button>
       </Box>
     </Paper>

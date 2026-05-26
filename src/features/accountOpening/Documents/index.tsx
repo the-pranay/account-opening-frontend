@@ -7,15 +7,15 @@ import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import IconButton from '@mui/material/IconButton';
 import Chip from '@mui/material/Chip';
+import Alert from '@mui/material/Alert';
 import { useDispatch, useSelector } from 'react-redux';
-import { addDocument, removeDocument, setAccountStatus } from '@/store/accountSlice';
+import { addDocument, removeDocument } from '@/store/accountSlice';
 import type { RootState } from '@/store/store';
 import DataTable from '@/components/tables/DataTable';
 import UploadDocumentModal from '@/components/modals/UploadDocumentModal';
-import { uploadDocument, uploadStepDocument, getErrorMessage } from '@/services/accountApi';
 import { createColumnHelper } from '@tanstack/react-table';
 import type { AccountDocument } from '@/types/accountTypes';
-import { Upload, Trash2, FileCheck } from 'lucide-react';
+import { Upload, Trash2, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const columnHelper = createColumnHelper<AccountDocument>();
@@ -28,7 +28,7 @@ interface DocumentsProps {
 export default function DocumentsStep({ onNext, onBack }: DocumentsProps) {
   const dispatch = useDispatch();
   const documents = useSelector((state: RootState) => state.accountOpening.documents);
-  const accountOpeningRequestId = useSelector((state: RootState) => state.accountOpening.accountOpeningRequestId);
+  const newAccount = useSelector((state: RootState) => state.accountOpening.newAccount);
   const [modalOpen, setModalOpen] = useState(false);
 
   const formatSize = (bytes: number) => {
@@ -46,15 +46,16 @@ export default function DocumentsStep({ onNext, onBack }: DocumentsProps) {
       header: 'Size',
       cell: (info) => formatSize(info.getValue()),
     }),
-    columnHelper.accessor('uploadDate', {
-      header: 'Upload Date',
-      cell: (info) => new Date(info.getValue()).toLocaleDateString(),
-    }),
     columnHelper.display({
       id: 'status',
       header: 'Status',
       cell: () => (
-        <Chip label="Uploaded" size="small" color="success" icon={<FileCheck size={14} />} />
+        <Chip
+          label="Pending Upload"
+          size="small"
+          color="warning"
+          icon={<Clock size={14} />}
+        />
       ),
     }),
     columnHelper.display({
@@ -75,63 +76,15 @@ export default function DocumentsStep({ onNext, onBack }: DocumentsProps) {
     }),
   ];
 
-  const handleSaveDocument = async (doc: AccountDocument) => {
-    if (!accountOpeningRequestId) {
-      toast.error('No account opening request found. Please complete Step 1 first.');
-      return false;
-    }
-
+  // Save document locally only — files will be uploaded to the backend at final submit
+  const handleSaveDocument = async (doc: AccountDocument): Promise<boolean> => {
     if (!doc.file) {
-      toast.error('Please select a document file to upload.');
+      toast.error('Please select a document file.');
       return false;
     }
-
-    try {
-      const uploadResponse = await uploadDocument({
-        file: doc.file,
-        documentType: doc.documentType,
-        documentCategory: doc.documentCategory,
-        customerId: doc.customerId,
-        accountOpeningId: accountOpeningRequestId,
-      });
-
-      if (!uploadResponse.success) {
-        toast.error(uploadResponse.message || 'Document upload failed');
-        return false;
-      }
-
-      const uploaded = uploadResponse.data || {};
-      const documentId =
-        typeof uploaded.documentId === 'string' ? uploaded.documentId : undefined;
-      const filePath =
-        typeof uploaded.filePath === 'string'
-          ? uploaded.filePath
-          : typeof uploaded.documentPath === 'string'
-            ? uploaded.documentPath
-            : undefined;
-
-      const stepResponse = await uploadStepDocument({
-          accountOpeningRequestId,
-          documentType: doc.documentType,
-          documentCategory: doc.documentCategory,
-          fileName: doc.fileName,
-          documentId,
-          filePath,
-        });
-
-      if (stepResponse.success) {
-        dispatch(addDocument({ ...doc, id: documentId || doc.id }));
-        dispatch(setAccountStatus(stepResponse.data.status));
-        toast.success('Document uploaded to server');
-        return true;
-      } else {
-        toast.error(stepResponse.message || 'Failed to attach document to account');
-        return false;
-      }
-    } catch (err) {
-      toast.error(getErrorMessage(err));
-      return false;
-    }
+    dispatch(addDocument(doc));
+    toast.success('Document added — will be uploaded on Submit');
+    return true;
   };
 
   return (
@@ -146,9 +99,13 @@ export default function DocumentsStep({ onNext, onBack }: DocumentsProps) {
           onClick={() => setModalOpen(true)}
           sx={{ borderRadius: '8px', textTransform: 'none' }}
         >
-          Upload Document
+          Add Document
         </Button>
       </Box>
+
+      <Alert severity="info" sx={{ mb: 3, borderRadius: '8px' }}>
+        Documents are stored locally and will be uploaded to the server when you submit the application.
+      </Alert>
 
       <Typography variant="subtitle2" fontWeight={600} color="text.secondary" sx={{ mb: 2 }}>
         Account Level Documents
@@ -160,6 +117,7 @@ export default function DocumentsStep({ onNext, onBack }: DocumentsProps) {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onSave={handleSaveDocument}
+        customerId={newAccount.customerId}
       />
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
@@ -167,7 +125,7 @@ export default function DocumentsStep({ onNext, onBack }: DocumentsProps) {
           Back
         </Button>
         <Button variant="contained" onClick={onNext} size="large" sx={{ borderRadius: '8px', px: 4 }}>
-          Continue
+          Save & Continue
         </Button>
       </Box>
     </Paper>
