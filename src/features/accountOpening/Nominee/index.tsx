@@ -76,6 +76,12 @@ export default function NomineeStep({ onBack, onComplete }: NomineeProps) {
       return;
     }
 
+    const totalShare = nominees.reduce((sum, n) => sum + n.shareHoldingPercentage, 0);
+    if (totalShare !== 100) {
+      toast.error(`Total nominee share percentage must equal 100. Current: ${totalShare}`);
+      return;
+    }
+
     setIsSaving(true);
     try {
       const response = await addNominees({

@@ -35,6 +35,7 @@ import DocumentsStep from '@/features/accountOpening/Documents';
 import BasicDetailsStep from '@/features/accountOpening/BasicDetails';
 import TransactionLimitsStep from '@/features/accountOpening/TransactionLimits';
 import NomineeStep from '@/features/accountOpening/Nominee';
+import InitialFundingStep from '@/features/accountOpening/InitialFunding';
 import { Bell, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -131,7 +132,7 @@ function AccountOpeningContent() {
     }
   };
 
-  const progress = ((currentStep + 1) / 7) * 100;
+  const progress = ((currentStep + 1) / 8) * 100;
 
   const userInitials = user
     ? `${(user.firstName || '')[0] || ''}${(user.lastName || '')[0] || ''}`.toUpperCase() || 'U'
@@ -152,7 +153,9 @@ function AccountOpeningContent() {
       case 5:
         return <TransactionLimitsStep onNext={goNext} onBack={goBack} />;
       case 6:
-        return <NomineeStep onBack={goBack} onComplete={() => setConfirmOpen(true)} />;
+        return <NomineeStep onBack={goBack} onComplete={goNext} />;
+      case 7:
+        return <InitialFundingStep onBack={goBack} onComplete={() => setConfirmOpen(true)} />;
       default:
         return null;
     }
@@ -236,7 +239,7 @@ function AccountOpeningContent() {
       <ConfirmDialog
         open={confirmOpen}
         title="Submit Account Application"
-        message="All 7 steps are complete. This will send all your data to the backend and create the account. Are you sure you want to proceed?"
+        message="All 8 steps are complete. This will send all your data to the backend and create the account. Are you sure you want to proceed?"
         onCancel={() => setConfirmOpen(false)}
         onConfirm={handleSubmit}
         loading={isLoading}
