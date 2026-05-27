@@ -185,7 +185,6 @@ export const STEPPER_STEPS = [
   'Basic Details',
   'Transaction Limits',
   'Nominee',
-  'Initial Funding',
 ] as const;
 
 // Column mapping for offline form import
