@@ -13,7 +13,7 @@ import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useDispatch, useSelector } from 'react-redux';
-import { setRelationship, addApplicant, removeApplicant } from '@/store/accountSlice';
+import { setRelationship, addApplicant, removeApplicant, setCbsAccountNumber } from '@/store/accountSlice';
 import type { RootState } from '@/store/store';
 import SelectInput from '@/components/forms/SelectInput';
 import DataTable from '@/components/tables/DataTable';
@@ -97,6 +97,10 @@ export default function RelationshipStep({ onNext, onBack }: RelationshipProps) 
 
       if (response.success) {
         dispatch(setRelationship(data));
+        // Save the CBS Account Number returned by Step 3 into Redux
+        if (response.data?.cbsAccountNumber) {
+          dispatch(setCbsAccountNumber(response.data.cbsAccountNumber));
+        }
         onNext();
       } else {
         throw new Error(response.message || 'Failed to save relationship details');
